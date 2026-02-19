@@ -125,6 +125,7 @@ public class TileMap
 
     public class Corridor
     {
+        public int index;
         public List<Tile> tiles = new List<Tile>();
     }
 
@@ -184,9 +185,10 @@ public class TileMap
         this.maxRoomSize = Mathf.Max(maxRoomSize, TileMap.MinRoomSize);
 
         RandomDepthCount = new WeightRandom<int>();
+        RandomDepthCount.Add(1, 4);
         RandomDepthCount.Add(2, 3);
-        RandomDepthCount.Add(3, 2);
-        RandomDepthCount.Add(5, 1);
+        RandomDepthCount.Add(4, 2);
+        RandomDepthCount.Add(2, 1);
     
         List<Room> candidateRooms = CreateRooms();
         List<Room> selectedRooms = SelectRooms(candidateRooms);
@@ -725,6 +727,7 @@ public class TileMap
         var path = pathFinder.FindPath(start, end);
 
         Corridor corridor = new Corridor();
+        corridor.index = a.index;
         corridor.tiles = path;
 
         Debug.Assert(0 < corridor.tiles.Count);

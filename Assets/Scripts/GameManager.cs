@@ -56,7 +56,7 @@ public class GameManager : MonoBehaviour
             }
         }
 
-        dungeon.Generate();
+        //dungeon.Generate();
         Debug.Log("Dungeon generated in Start()");
     }
 
