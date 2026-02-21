@@ -11,11 +11,11 @@ public class WeightRandom<T>
     }
 
     private List<Element> elements = new List<Element>();
-    private int totalWeight = 0;
+    public int TotalWeight { get; private set; } = 0;
 
     public WeightRandom()
     {
-        this.totalWeight = 0;
+        this.TotalWeight = 0;
     }
 
     public void Add(int weight, T value)
@@ -25,8 +25,8 @@ public class WeightRandom<T>
             return;
         }
 
-        this.totalWeight += weight;
-        elements.Add(new Element { weight = weight, cumulative = totalWeight, value = value });
+        this.TotalWeight += weight;
+        elements.Add(new Element { weight = weight, cumulative = TotalWeight, value = value });
     }
 
     public T Random()
@@ -36,7 +36,7 @@ public class WeightRandom<T>
             throw new System.InvalidOperationException("WeightRandom has no elements");
         }
 
-        int randomValue = UnityEngine.Random.Range(1, totalWeight + 1);
+        int randomValue = UnityEngine.Random.Range(1, TotalWeight + 1);
         int index = BinarySearch(randomValue);
         return elements[index].value;
     }

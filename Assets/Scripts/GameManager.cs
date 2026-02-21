@@ -56,7 +56,7 @@ public class GameManager : MonoBehaviour
             }
         }
 
-        //dungeon.Generate();
+        dungeon.Generate();
         Debug.Log("Dungeon generated in Start()");
     }
 
@@ -295,19 +295,7 @@ public class GameManager : MonoBehaviour
             return;
         }
 
-        TileMap tileMap = dungeon.GetTileMap();
-        if (tileMap == null)
-        {
-            return;
-        }
-
-        LevelGenerator levelGenerator = dungeon.GetLevelGenerator();
-        if (levelGenerator == null)
-        {
-            return;
-        }
-
-        TileMap.Tile endTile = levelGenerator.End;
+        TileMap.Tile endTile = dungeon.End;
         if (endTile == null)
         {
             return;
@@ -334,15 +322,8 @@ public class GameManager : MonoBehaviour
     /// </summary>
     private void OnExitFound()
     {
-        LevelGenerator levelGenerator = GetLevelGenerator();
-        if (levelGenerator == null)
-        {
-            Debug.Log("출구를 찾았다!");
-            return;
-        }
-
         Debug.Log("출구를 찾았다!");
-        Debug.Log($"End Tile 위치: ({(int)levelGenerator.End.rect.x}, {(int)levelGenerator.End.rect.y})");
+        Debug.Log($"End Tile 위치: ({(int)dungeon.End.rect.x}, {(int)dungeon.End.rect.y})");
         dungeon.randomSeed = 0;
         remainingTime = 60f;  // 타이머 리셋
         blinkTimer = 0f;  // 깜빡임 타이머 리셋
@@ -362,14 +343,6 @@ public class GameManager : MonoBehaviour
         }
 
         dungeon.Generate();
-    }
-
-    /// <summary>
-    /// LevelGenerator에 접근하기 위한 getter 추가
-    /// </summary>
-    public LevelGenerator GetLevelGenerator()
-    {
-        return dungeon != null ? dungeon.GetLevelGenerator() : null;
     }
 
     /// <summary>

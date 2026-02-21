@@ -19,6 +19,10 @@ public class Character : MonoBehaviour
     public GameObject projectilePrefab;
     public Transform shootPoint;
     public float projectileSpeed = 20f;
+
+    [Header("Direction Indicator Settings")]
+    private GameObject directionIndicator;
+    private Transform directionIndicatorTransform;
     
     void Start()
     {
@@ -46,6 +50,53 @@ public class Character : MonoBehaviour
         int characterLayer = gameObject.layer;
         int columnLayer = LayerMask.NameToLayer("DungeonColumn");
         Physics.IgnoreLayerCollision(characterLayer, columnLayer, true);
+
+        // 방향 지시자(삼각형) 생성
+        CreateDirectionIndicator();
+    }
+
+    /// <summary>
+    /// 캐릭터의 머리 위에 방향을 가리키는 삼각형 객체를 생성합니다.
+    /// </summary>
+    private void CreateDirectionIndicator()
+    {
+        // 삼각형 메쉬 생성
+        Mesh triangleMesh = new Mesh();
+        triangleMesh.name = "DirectionTriangle";
+
+        Vector3[] vertices = new Vector3[]
+        {
+            new Vector3(0, 0, 5.0f),    // 위쪽 꼭짓점 (앞쪽)
+            new Vector3(2.5f, 0, -2.5f),   // 오른쪽 아래
+            new Vector3(-2.5f, 0, -2.5f), // 왼쪽 아래
+        };
+
+        // 삼각형의 인덱스 정의
+        int[] triangles = new int[] { 0, 1, 2 };
+
+        // 메쉬에 데이터 할당
+        triangleMesh.vertices = vertices;
+        triangleMesh.triangles = triangles;
+        triangleMesh.RecalculateNormals();
+        triangleMesh.RecalculateBounds();
+
+        // 게임 오브젝트 생성
+        directionIndicator = new GameObject("DirectionIndicator");
+        directionIndicator.transform.SetParent(voxelCharacter.Head, false);
+        directionIndicator.transform.localPosition = new Vector3(0, 6.0f, 0);
+        directionIndicatorTransform = directionIndicator.transform;
+
+        // MeshFilter 추가
+        MeshFilter meshFilter = directionIndicator.AddComponent<MeshFilter>();
+        meshFilter.mesh = triangleMesh;
+
+        // MeshRenderer 추가
+        MeshRenderer meshRenderer = directionIndicator.AddComponent<MeshRenderer>();
+        Material material = new Material(Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"));
+        material.color = Color.red;
+        meshRenderer.material = material;
+
+        Debug.Log("Direction indicator created successfully!");
     }
 
     // Update is called once per frame
@@ -54,6 +105,7 @@ public class Character : MonoBehaviour
         HandleInput();
         MoveCharacter();
         UpdateCameraPosition();
+        UpdateDirectionIndicator();
     }
 
     void HandleInput()
@@ -184,26 +236,29 @@ public class Character : MonoBehaviour
             if (null != collidingObject)
             {
                 // 충돌한 벽의 Z축 법선 벡터 계산
-                Vector3 wallNormal = collidingObject.transform.forward;
-                // Y축 무시 (수평 평면만 고려)
-                wallNormal.y = 0;
-                wallNormal = wallNormal.normalized;
-                // 내적 계산
-                float dotProduct = Vector3.Dot(movement.normalized, wallNormal);
-                
-                // 로그 출력
-                Debug.Log($"벽 충돌: {collidingObject.name}");
-                Debug.Log($"Z축 법선 벡터: {wallNormal}");
-                Debug.Log($"Movement 벡터: {movement.normalized}");
-                Debug.Log($"내적 결과: {dotProduct:F4}");
-                if (0.0f > dotProduct && dotProduct > -1.0f)
+                if (Input.GetKey(KeyCode.UpArrow))
                 {
-                    Vector3 projectionVector = dotProduct* wallNormal;
-                    Vector3 slideVector = movement - projectionVector;
-                    if (slideVector.magnitude > 0.01f)
+                    Vector3 wallNormal = collidingObject.transform.forward;
+                    // Y축 무시 (수평 평면만 고려)
+                    wallNormal.y = 0;
+                    wallNormal = wallNormal.normalized;
+                    // 내적 계산
+                    float dotProduct = Vector3.Dot(movement.normalized, wallNormal);
+
+                    // 로그 출력
+                    Debug.Log($"벽 충돌: {collidingObject.name}");
+                    Debug.Log($"Z축 법선 벡터: {wallNormal}");
+                    Debug.Log($"Movement 벡터: {movement.normalized}");
+                    Debug.Log($"내적 결과: {dotProduct:F4}");
+                    if (0.0f > dotProduct && dotProduct > -1.0f)
                     {
-                        Quaternion slideRotation = Quaternion.LookRotation(slideVector);
-                        transform.rotation = Quaternion.Lerp(transform.rotation, slideRotation, Time.deltaTime * 5f);
+                        Vector3 projectionVector = dotProduct * wallNormal;
+                        Vector3 slideVector = movement - projectionVector;
+                        if (slideVector.magnitude > 0.01f)
+                        {
+                            Quaternion slideRotation = Quaternion.LookRotation(slideVector);
+                            transform.rotation = Quaternion.Lerp(transform.rotation, slideRotation, Time.deltaTime * 5f);
+                        }
                     }
                 }
                 return;
@@ -276,5 +331,18 @@ public class Character : MonoBehaviour
 
         // 카메라가 캐릭터를 바라보도록 설정
         mainCamera.transform.LookAt(transform.position + Vector3.up * (cameraHeight * 0.5f));
+    }
+
+    /// <summary>
+    /// 방향 지시자(삼각형)를 캐릭터의 forward 방향에 맞게 회전시킵니다.
+    /// </summary>
+    private void UpdateDirectionIndicator()
+    {
+        if (directionIndicatorTransform == null)
+            return;
+
+        // 삼각형이 항상 캐릭터의 forward 방향을 가리키도록 설정
+        // 부모(머리)의 로컬 좌표계에서 회전
+        directionIndicatorTransform.localRotation = Quaternion.identity;
     }
 }

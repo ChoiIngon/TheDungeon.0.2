@@ -186,9 +186,9 @@ public class TileMap
 
         RandomDepthCount = new WeightRandom<int>();
         RandomDepthCount.Add(1, 4);
-        RandomDepthCount.Add(2, 3);
-        RandomDepthCount.Add(4, 2);
-        RandomDepthCount.Add(2, 1);
+        RandomDepthCount.Add(45, 3);
+        RandomDepthCount.Add(50, 2);
+        RandomDepthCount.Add(4, 1);
     
         List<Room> candidateRooms = CreateRooms();
         List<Room> selectedRooms = SelectRooms(candidateRooms);
