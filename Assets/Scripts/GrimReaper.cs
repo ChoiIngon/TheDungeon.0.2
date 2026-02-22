@@ -81,8 +81,20 @@ public class GrimReaper : MonoBehaviour
 
         GameObject hood = Primitive.CreateCube("Hood", Vector3.zero, new Vector3(1.2f, 1.1f, 1.0f), robeColor, headPivotTransform);
         Primitive.CreateCube("HoodFrontOpening", new Vector3(0, -0.1f, 0.4f), new Vector3(0.8f, 0.7f, 0.35f), Color.black, hood.transform); // 후드 안쪽 어두운 공간
-        Primitive.CreateCube("EyeLeft", new Vector3(-0.2f, 0.1f, 0.53f), new Vector3(0.1f, 0.1f, 0.1f), eyeColor, hood.transform);
-        Primitive.CreateCube("EyeRight", new Vector3(0.2f, 0.1f, 0.53f), new Vector3(0.1f, 0.1f, 0.1f), eyeColor, hood.transform);
+
+        // 왼쪽 눈
+        GameObject eyeLeftObj = new GameObject();
+        eyeLeftObj.name = "EyeLeft";
+        eyeLeftObj.transform.SetParent(hood.transform, false);
+        eyeLeftObj.transform.localPosition = new Vector3(-0.2f, 0.1f, 0.6f);
+        AddPointLightToEye(eyeLeftObj, eyeColor);
+        
+        // 오른쪽 눈
+        GameObject eyeRightObj = new GameObject();
+        eyeRightObj.name = "EyeRight";
+        eyeRightObj.transform.SetParent(hood.transform, false);
+        eyeRightObj.transform.localPosition = new Vector3(0.2f, 0.1f, 0.6f);
+        AddPointLightToEye(eyeRightObj, eyeColor);
 
         // 팔
         GameObject armLeftPivot = new GameObject("ArmLeftPivot");
@@ -143,6 +155,26 @@ public class GrimReaper : MonoBehaviour
 
         GameObject bladePart2 = Primitive.CreateCube("BladePart2", new Vector3(2.65f, 0.22f, 0), new Vector3(2.0f, 0.6f, 0.1f), scytheBladeColor, bladeRoot.transform);
         bladePart2.transform.localRotation = Quaternion.Euler(0, 0, -25);
+    }
+
+    /// <summary>
+    /// 눈 오브젝트에 Point Light를 추가합니다.
+    /// </summary>
+    private void AddPointLightToEye(GameObject eyeObject, Color lightColor)
+    {
+        if (eyeObject == null)
+        {
+            return;
+        }
+
+        // Point Light 컴포넌트 추가
+        Light pointLight = eyeObject.AddComponent<Light>();
+        pointLight.type = LightType.Point;
+        pointLight.color = lightColor;
+        pointLight.intensity = 1.5f;
+        pointLight.range = 0.1f;  // 눈 사이즈만한 범위
+
+        Debug.Log($"Point Light added to {eyeObject.name}");
     }
 
     // ... (이하 애니메이션 코드는 VoxelCharacter와 거의 동일, 다리 부분만 제거)

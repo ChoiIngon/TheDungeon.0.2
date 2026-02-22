@@ -686,7 +686,6 @@ MonoBehaviour:
   minRoomSize: 3
   maxRoomSize: 6
   player: {fileID: 1439034610}
-  enemyPrefab: {fileID: 8996762105941742526, guid: 1d4db54ec1f59e34caf2c0474fcc0a05, type: 3}
 --- !u!4 &1364448753
 Transform:
   m_ObjectHideFlags: 0
@@ -765,7 +764,7 @@ MonoBehaviour:
   shootPoint: {fileID: 0}
   projectileSpeed: 20
   mouseSensitivity: 2
-  interactionDistance: 3
+  interactionDistance: 10
 --- !u!4 &1439034613
 Transform:
   m_ObjectHideFlags: 0

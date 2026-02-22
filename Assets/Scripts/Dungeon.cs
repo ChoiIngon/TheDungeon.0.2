@@ -26,8 +26,9 @@ public class Dungeon : MonoBehaviour
     public int minRoomSize = 3;
     public int maxRoomSize = 7;
 
-    [Header("Player")]
+    [Header("Unit Object Settings")]
     public GameObject player;
+    public GameObject enemyPrefab;
 
     TileMap tileMap = null;
     LevelGenerator levelGenerator = null;
@@ -71,6 +72,7 @@ public class Dungeon : MonoBehaviour
         }
 
         InitializePlayerPosition();
+        InitializeEnemy();
     }
 
     private void CreateTorchObject(List<GameObject> walls)
@@ -510,5 +512,22 @@ public class Dungeon : MonoBehaviour
         player.transform.rotation = Quaternion.LookRotation(stairForward);
         
         Debug.Log($"Player forward direction set to match stair: {stairForward}");
+    }
+
+    private void InitializeEnemy()
+    {
+        foreach (TileMap.Room room in tileMap.rooms)
+        {
+            Rect spawnArea = room.GetFloorRect();
+
+            int randomX = (int)Random.Range(spawnArea.xMin, spawnArea.xMax);
+            int randomY = (int)Random.Range(spawnArea.yMin, spawnArea.yMax);
+
+            Vector3 enemyPosition = new Vector3(randomX * TileSize, 1.0f, randomY * TileSize);
+            // enemy 생성
+            GameObject enemy = Instantiate(enemyPrefab, enemyPosition, Quaternion.identity, transform);
+            enemy.name = $"Enemy_{randomX}_{randomY}";
+            enemy.transform.SetParent(this.tiles, false);
+        }
     }
 }
