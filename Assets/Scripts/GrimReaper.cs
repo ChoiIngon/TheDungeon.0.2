@@ -202,7 +202,7 @@ public class GrimReaper : MonoBehaviour
     {
         // 로컬 좌표에서 살짝 떠다니는 움직임 추가
         float floatingY = Mathf.Sin(Time.time * idleSpeed * 0.5f) * floatingHeight;
-        transform.localPosition = new Vector3(transform.localPosition.x, floatingY, transform.localPosition.z);
+        transform.localPosition = new Vector3(transform.localPosition.x, floatingY + 1.0f, transform.localPosition.z);
 
         float breathe01 = (Mathf.Sin(Time.time * idleSpeed) + 1f) * 0.5f;
         float armZAngle = Mathf.Lerp(idleArmAngleRange.x, idleArmAngleRange.y, breathe01);

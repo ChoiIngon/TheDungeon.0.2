@@ -66,6 +66,7 @@ GameObject:
   m_Component:
   - component: {fileID: 7317655146637132973}
   - component: {fileID: 9166879173456635889}
+  - component: {fileID: 2332475633341383597}
   m_Layer: 0
   m_Name: GrimReaper
   m_TagString: Untagged
@@ -101,3 +102,27 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 07418d055219e2b4fa9019eed313caad, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Enemy
+--- !u!114 &2332475633341383597
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8996762105941742526}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9ff2254bdb09851438bbbe307ff759b5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GrimReaper
+  robeColor: {r: 0.15686275, g: 0.15686275, b: 0.15686275, a: 1}
+  eyeColor: {r: 1, g: 0, b: 0, a: 1}
+  scytheHandleColor: {r: 0.39607844, g: 0.2627451, b: 0.12941177, a: 1}
+  scytheBladeColor: {r: 0.78431374, g: 0.78431374, b: 0.78431374, a: 1}
+  idleSpeed: 2
+  idleArmAngleRange: {x: 5, y: 10}
+  floatingHeight: 0.1
+  walkSpeed: 10
+  walkAngle: 35
+  attackDuration: 0.5
+  hurtDuration: 0.3
+  deathDuration: 1.5

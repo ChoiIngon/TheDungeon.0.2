@@ -3,13 +3,13 @@
 public class Enemy : MonoBehaviour
 {
     // Start is called once before the first execution of Update after the MonoBehaviour is created
-    private GrimReaper unit;
+    private GrimReaper enemyModel;
     private const float DetectionDistance = 10.0f;
 
     void Start()
     {
-        unit = GetComponentInChildren<GrimReaper>();
-        unit.Build();
+        enemyModel = GetComponent<GrimReaper>();
+        enemyModel.Build();
     }
 
     // Update is called once per frame

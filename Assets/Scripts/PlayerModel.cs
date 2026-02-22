@@ -1,36 +1,13 @@
-﻿using System.Collections.Generic;
-using System.Runtime.InteropServices.WindowsRuntime;
-using Unity.VisualScripting;
-using UnityEditor.ShaderGraph;
-using UnityEngine;
-using UnityEngine.UIElements;
+﻿using UnityEngine;
 
-public class VoxelCharacter : MonoBehaviour
+public class PlayerModel : ActorModel
 {
-    private List<GameObject> parts = new List<GameObject>();
-    private Transform armLeftPivotTransform, armRightPivotTransform, legLeftPivotTransform, legRightPivotTransform, handLeftPivotTransform, handRightPivotTransform, headPivotTransform;
-   
-    public enum CharacterState
-    {
-        Idle,    // 대기
-        Walk,    // 걷기
-        Attack,  // 공격
-        Hurt,     // 피격
-        Dead     // 사망
-    }
-
-    private CharacterState currentState = CharacterState.Idle;
-
     public Color hairColor = new Color32(143, 87, 48, 255);
     public Color skinColor = new Color32(255, 204, 184, 255);
     public Color bodyColor = new Color32(143, 143, 143, 255);
     public Color pantsColor = new Color32(87, 48, 87, 255);
     public Color shoeColor = Color.black;
     public Color eyeColor = Color.black;
-
-    public Transform Head { get { return headPivotTransform; } }
-    public Transform RightHand { get { return handRightPivotTransform; } }
-    public Transform LeftHand { get { return handLeftPivotTransform; } }
 
     [Header("Idle Animation Settings")]
     public float idleSpeed = 2.0f;
@@ -43,85 +20,61 @@ public class VoxelCharacter : MonoBehaviour
     [Header("Attack Animation Settings")]
     public float attackDuration = 0.4f;
 
-    [Header("Animation Duration Settings")]
+    [Header("Hurt Animation Settings")]
     public float hurtDuration = 0.3f;
+
+    [Header("Dead Animation Settings")]
     public float deathDuration = 1.5f;
 
-    private float animationElapsedTime = 0.0f;
-    private float smoothTime = 10f;
-    //private float savedYawAngle = 0f;
-    
-    public void Update()
-    {
-        switch (currentState)
-        {
-            case CharacterState.Idle: AnimateIdle(); break;
-            case CharacterState.Attack: AnimateAttack(); break;
-            case CharacterState.Walk: AnimateWalk(); break;
-            case CharacterState.Hurt: AnimateHurt(); break;
-            case CharacterState.Dead: AnimateDead(); break;
-        }
-    }
     public void Build()
     {
-        foreach (var part in parts)
-        {
-            if (null != part)
-            {
-                GameObject.Destroy(part);
-            }
-        }
-        parts.Clear();
+        GameObject headPivotObject = new GameObject("HeadPivot");
+        headPivotObject.transform.SetParent(this.transform, false);
+        headPivotObject.transform.localPosition = new Vector3(0, 0.9f, 0);
+        this.headPivot = headPivotObject.transform;
 
-        GameObject body = Primitive.CreateCube( "Body", new Vector3(0, 0.2f, 0), new Vector3(0.8f, 0.4f, 0.5f), bodyColor, this.transform);
-        GameObject pants = Primitive.CreateCube( "Pants", new Vector3(0, -0.15f, 0), new Vector3(0.8f, 0.3f, 0.5f), pantsColor, this.transform);
+        GameObject faceObject = Primitive.CreateCube("Face", new Vector3(0, 0, 0), new Vector3(1.2f, 1.0f, 0.8f), skinColor, headPivot);
+        Primitive.CreateCube("EyeLeft", new Vector3(-0.3f, 0.1f, 0.53f), new Vector3(0.15f, 0.25f, 0.1f), eyeColor, faceObject.transform);
+        Primitive.CreateCube("EyeRight", new Vector3(0.3f, 0.1f, 0.53f), new Vector3(0.15f, 0.25f, 0.1f), eyeColor, faceObject.transform);
 
-        GameObject headPivot = new GameObject("HeadPivot");
-        headPivot.transform.SetParent(this.transform, false);
-        headPivot.transform.localPosition = new Vector3(0, 0.9f, 0);
-        headPivotTransform = headPivot.transform;
-        parts.Add(headPivot);
+        BuildHair(headPivot);
 
-        GameObject face = Primitive.CreateCube( "Face", new Vector3(0, 0, 0), new Vector3(1.2f, 1.0f, 0.8f), skinColor, headPivotTransform);
-        Primitive.CreateCube( "EyeLeft", new Vector3(-0.3f, 0.1f, 0.53f), new Vector3(0.15f, 0.25f, 0.1f), eyeColor, face.transform);
-        Primitive.CreateCube( "EyeRight", new Vector3(0.3f, 0.1f, 0.53f), new Vector3(0.15f, 0.25f, 0.1f), eyeColor, face.transform);
+        GameObject bodyObject = Primitive.CreateCube( "Body", new Vector3(0, 0.2f, 0), new Vector3(0.8f, 0.4f, 0.5f), bodyColor, this.transform);
+        GameObject pantsObject = Primitive.CreateCube( "Pants", new Vector3(0, -0.15f, 0), new Vector3(0.8f, 0.3f, 0.5f), pantsColor, this.transform);
 
-        BuildHair(headPivotTransform);
+        GameObject armLeftPivotObject = new GameObject("ArmLeftPivot");
+        armLeftPivotObject.transform.SetParent(this.transform, false);
+        armLeftPivotObject.transform.localPosition = new Vector3(-0.5f, 0.3f, 0);
+        this.armLeftPivot = armLeftPivotObject.transform;
 
-        GameObject armLeftPivot = new GameObject("ArmLeftPivot");
-        armLeftPivot.transform.SetParent(this.transform, false);
-        armLeftPivot.transform.localPosition = new Vector3(-0.5f, 0.3f, 0);
-        armLeftPivotTransform = armLeftPivot.transform;
-        Primitive.CreateCylinder( "ArmLeft", new Vector3(0, -0.15f, 0), new Vector3(0.2f, 0.2f, 0.2f), bodyColor, armLeftPivotTransform);
-        GameObject handLeft = Primitive.CreateSphere("HandLeft", new Vector3(0, -0.35f, 0), Vector3.one * 0.25f, skinColor, armLeftPivotTransform);
-        handLeftPivotTransform = handLeft.transform;
-        parts.Add(armLeftPivot);
+        Primitive.CreateCylinder("ArmLeft", new Vector3(0, -0.15f, 0), new Vector3(0.2f, 0.2f, 0.2f), bodyColor, this.armLeftPivot);
+        GameObject handLeftObject = Primitive.CreateSphere("HandLeftPivot", new Vector3(0, -0.35f, 0), Vector3.one * 0.25f, skinColor, this.armLeftPivot);
+        this.handLeftPivot = handLeftObject.transform;
 
-        GameObject armRightPivot = new GameObject("ArmRightPivot");
-        armRightPivot.transform.SetParent(this.transform, false);
-        armRightPivot.transform.localPosition = new Vector3(0.5f, 0.3f, 0);
-        armRightPivotTransform = armRightPivot.transform;
-        Primitive.CreateCylinder( "ArmRight", new Vector3(0, -0.15f, 0), new Vector3(0.2f, 0.2f, 0.2f), bodyColor, armRightPivotTransform);
-        GameObject handRight = Primitive.CreateSphere("HandRight", new Vector3(0, -0.35f, 0), Vector3.one * 0.25f, skinColor, armRightPivotTransform);
-        handRightPivotTransform = handRight.transform;
-        parts.Add(armRightPivot);
+        GameObject armRightPivotObject = new GameObject("ArmRightPivot");
+        armRightPivotObject.transform.SetParent(this.transform, false);
+        armRightPivotObject.transform.localPosition = new Vector3(0.5f, 0.3f, 0);
+        this.armRightPivot = armRightPivotObject.transform;
 
-        GameObject legLeftPivot = new GameObject("LegLeftPivot");
-        legLeftPivot.transform.SetParent(this.transform, false);
-        // initial approximate pivot position;  will adjust so shoe bottom sits at y=0
-        legLeftPivot.transform.localPosition = new Vector3(-0.2f, -0.3f, 0);
-        legLeftPivotTransform = legLeftPivot.transform;
-        Primitive.CreateCube( "LegLeftUpper", new Vector3(0, -0.075f, 0), new Vector3(0.25f, 0.15f, 0.3f), pantsColor, legLeftPivotTransform);
-        GameObject shoeLeft = Primitive.CreateCube( "ShoeLeft", new Vector3(0, -0.2f, 0), new Vector3(0.25f, 0.15f, 0.35f), shoeColor, legLeftPivotTransform);
-        parts.Add(legLeftPivot);
+        Primitive.CreateCylinder("ArmRight", new Vector3(0, -0.15f, 0), new Vector3(0.2f, 0.2f, 0.2f), bodyColor, this.armRightPivot);
+        GameObject handRightObject = Primitive.CreateSphere("HandRightPivot", new Vector3(0, -0.35f, 0), Vector3.one * 0.25f, skinColor, this.armRightPivot);
+        handRightPivot = handRightObject.transform;
 
-        GameObject legRightPivot = new GameObject("LegRightPivot");
-        legRightPivot.transform.SetParent(this.transform, false);
-        legRightPivot.transform.localPosition = new Vector3(0.2f, -0.3f, 0);
-        legRightPivotTransform = legRightPivot.transform;
-        Primitive.CreateCube( "LegRightUpper", new Vector3(0, -0.075f, 0), new Vector3(0.25f, 0.15f, 0.3f), pantsColor, legRightPivotTransform);
-        GameObject shoeRight = Primitive.CreateCube( "ShoeRight", new Vector3(0, -0.2f, 0), new Vector3(0.25f, 0.15f, 0.35f), shoeColor, legRightPivotTransform);
-        parts.Add(legRightPivot);
+        GameObject legLeftPivotObject = new GameObject("LegLeftPivot");
+        legLeftPivotObject.transform.SetParent(this.transform, false);
+        legLeftPivotObject.transform.localPosition = new Vector3(-0.2f, -0.3f, 0);
+        this.legLeftPivot = legLeftPivotObject.transform;
+
+        Primitive.CreateCube("LegLeftUpper", new Vector3(0, -0.075f, 0), new Vector3(0.25f, 0.15f, 0.3f), pantsColor, this.legLeftPivot);
+        GameObject shoeLeft = Primitive.CreateCube("ShoeLeft", new Vector3(0, -0.2f, 0), new Vector3(0.25f, 0.15f, 0.35f), shoeColor, this.legLeftPivot);
+
+        GameObject legRightPivotObject = new GameObject("LegRightPivot");
+        legRightPivotObject.transform.SetParent(this.transform, false);
+        legRightPivotObject.transform.localPosition = new Vector3(0.2f, -0.3f, 0);
+        this.legRightPivot = legRightPivotObject.transform;
+
+        Primitive.CreateCube( "LegRightUpper", new Vector3(0, -0.075f, 0), new Vector3(0.25f, 0.15f, 0.3f), pantsColor, this.legRightPivot);
+        GameObject shoeRight = Primitive.CreateCube( "ShoeRight", new Vector3(0, -0.2f, 0), new Vector3(0.25f, 0.15f, 0.35f), shoeColor, this.legRightPivot);
 
         // Adjust all child local positions so that the lowest shoe bottom sits at y=0
         float minShoeBottomY = float.PositiveInfinity;
@@ -147,7 +100,7 @@ public class VoxelCharacter : MonoBehaviour
             }
         }
 
-        Bounds bounds = GetHierarchyBounds(transform);
+        Bounds bounds = GetHierarchyBounds();
         BoxCollider collider = gameObject.AddComponent<BoxCollider>();
         Vector3 localScale = transform.lossyScale;
         Vector3 colliderSize;
@@ -162,18 +115,7 @@ public class VoxelCharacter : MonoBehaviour
         rigidbody.constraints = RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationY | RigidbodyConstraints.FreezeRotationZ;
     }
 
-    public void PlayAnimation(CharacterState state)
-    {
-        if(currentState == state)
-        {
-            return;
-        }
-
-        currentState = state;
-        animationElapsedTime = 0.0f;
-    }
-
-    private void AnimateAttack()
+    override protected void AnimateAttack()
     {
         // 공격 진행도 계산 (0 ~ 1)
         float attackProgress = Mathf.Clamp01(animationElapsedTime / attackDuration);
@@ -212,17 +154,14 @@ public class VoxelCharacter : MonoBehaviour
         
         ApplyRotations(leftArmTarget, rightArmTarget, legNeutral, legNeutral);
         
-        // 애니메이션 시간 업데이트
-        animationElapsedTime += Time.deltaTime;
-        
         // 공격 애니메이션이 완료되면 Idle 상태로 변경
         if (animationElapsedTime >= attackDuration)
         {
-            PlayAnimation(CharacterState.Idle);
+            PlayAnimation(ActorState.Idle);
         }
     }
 
-    void AnimateHurt()
+    override protected void AnimateHurt()
     {
         // 피격 진행도 계산 (0 ~ 1)
         float hitProgress = Mathf.Clamp01(animationElapsedTime / hurtDuration);
@@ -235,7 +174,7 @@ public class VoxelCharacter : MonoBehaviour
 
         float progress = animationElapsedTime / hurtDuration;
         float headSnap = 15f * Mathf.Sin(progress * Mathf.PI);
-        headPivotTransform.localRotation = Quaternion.Euler(headSnap, 0, 0);
+        headPivot.localRotation = Quaternion.Euler(headSnap, 0, 0);
         // body tilts opposite the head snap for visual impact
         float bodyTilt = -headSnap * 0.5f;
         // combine saved yaw with new pitch tilt so facing direction remains the same
@@ -266,17 +205,14 @@ public class VoxelCharacter : MonoBehaviour
         
         ApplyRotations(leftArmTarget, rightArmTarget, legNeutral, legNeutral);
         
-        // 애니메이션 시간 업데이트
-        animationElapsedTime += Time.deltaTime;
-        
         // 피격 애니메이션이 완료되면 Idle 상태로 변경
         if (animationElapsedTime >= hurtDuration)
         {
-            PlayAnimation(CharacterState.Idle);
+            PlayAnimation(ActorState.Idle);
         }
     }
 
-    void AnimateIdle()
+    override protected void AnimateIdle()
     {
         float breathe01 = (Mathf.Sin(Time.time * idleSpeed) + 1f) * 0.5f;
         float armZAngle = Mathf.Lerp(idleArmAngleRange.x, idleArmAngleRange.y, breathe01);
@@ -286,7 +222,7 @@ public class VoxelCharacter : MonoBehaviour
         ApplyRotations(leftArmTarget, rightArmTarget, legNeutral, legNeutral);
     }
 
-    void AnimateWalk()
+    override protected void AnimateWalk()
     {
         float swing = Mathf.Sin(Time.time * walkSpeed);
         float currentAngle = swing * walkAngle;
@@ -296,8 +232,6 @@ public class VoxelCharacter : MonoBehaviour
         Quaternion rightLegTarget = Quaternion.Euler(currentAngle, 0, 0);
         ApplyRotations(leftArmTarget, rightArmTarget, leftLegTarget, rightLegTarget);
 
-        animationElapsedTime += Time.deltaTime;
-
         float walkHalfCycleTime = float.PositiveInfinity;
         if(0 < walkSpeed)
         {
@@ -306,11 +240,11 @@ public class VoxelCharacter : MonoBehaviour
         // 공격 애니메이션이 완료되면 Idle 상태로 변경
         if (animationElapsedTime >= walkHalfCycleTime * 2)
         {
-            PlayAnimation(CharacterState.Idle);
+            PlayAnimation(ActorState.Idle);
         }
     }
 
-    void AnimateDead()
+    override protected void AnimateDead()
     {
         // death progress 0..1
         float progress = Mathf.Clamp01(animationElapsedTime / deathDuration);
@@ -322,10 +256,10 @@ public class VoxelCharacter : MonoBehaviour
         this.transform.localRotation = Quaternion.Euler(fallAngle, savedYawAngle, 0);
 
         // head tilts with the body (so face points upward when lying on back)
-        if (headPivotTransform != null)
+        if (headPivot != null)
         {
             float headTilt = Mathf.Lerp(0f, -40f, progress);
-            headPivotTransform.localRotation = Quaternion.Euler(headTilt, 0, 0);
+            headPivot.localRotation = Quaternion.Euler(headTilt, 0, 0);
         }
 
         // arms go limp outward/above body when lying on back
@@ -337,89 +271,14 @@ public class VoxelCharacter : MonoBehaviour
         Quaternion rightLegDead = Quaternion.Euler(30f, 0f, 0f);
 
         ApplyRotations(leftArmDead, rightArmDead, leftLegDead, rightLegDead);
-
-        // advance timer but do not revert state when finished
-        animationElapsedTime += Time.deltaTime;
     }
 
-    void ApplyRotations(Quaternion lArm, Quaternion rArm, Quaternion lLeg, Quaternion rLeg)
-    {
-        float dt = Time.deltaTime * smoothTime;
-        if (armLeftPivotTransform != null)
-        {
-            armLeftPivotTransform.localRotation = Quaternion.Slerp(armLeftPivotTransform.localRotation, lArm, dt);
-        }
-        if (armRightPivotTransform != null)
-        {
-            armRightPivotTransform.localRotation = Quaternion.Slerp(armRightPivotTransform.localRotation, rArm, dt);
-        }
-        if (legLeftPivotTransform != null)
-        {
-            legLeftPivotTransform.localRotation = Quaternion.Slerp(legLeftPivotTransform.localRotation, lLeg, dt);
-        }
-        if (legRightPivotTransform != null)
-        {
-            legRightPivotTransform.localRotation = Quaternion.Slerp(legRightPivotTransform.localRotation, rLeg, dt);
-        }
-    }
-
-    void BuildHair(Transform headParent)
+    private void BuildHair(Transform headParent)
     {
         Primitive.CreateCube( "HairTop", new Vector3(0, 0.6f, 0), new Vector3(1.4f, 0.4f, 1.2f), hairColor, headParent);
         Primitive.CreateCube( "HairFrontUpper", new Vector3(0, 0.4f, 0.55f), new Vector3(1.3f, 0.3f, 0.2f), hairColor, headParent);
         Primitive.CreateCube( "HairBack", new Vector3(0, 0.1f, -0.5f), new Vector3(1.4f, 1.0f, 0.4f), hairColor, headParent);
         Primitive.CreateCube( "HairSideLeft", new Vector3(-0.65f, 0.1f, 0), new Vector3(0.3f, 1.0f, 1.1f), hairColor, headParent);
         Primitive.CreateCube( "HairSideRight", new Vector3(0.65f, 0.1f, 0), new Vector3(0.3f, 1.0f, 1.1f), hairColor, headParent);
-    }
-
-    float GetHeight()
-    {
-        var (yMin, yMax) = GetHeight(this.transform);
-        return yMax - yMin;
-    }
-
-    (float yMin, float yMax) GetHeight(Transform transform)
-    {
-        float yMin = float.PositiveInfinity;
-        float yMax = float.NegativeInfinity;
-
-        for(int i = 0; i < transform.childCount; i++)
-        {
-            Transform child = transform.GetChild(i);
-            var (childYMin, childYMax) = GetHeight(child);
-            yMin = Mathf.Min(yMin, child.position.y - (child.lossyScale.y * 0.5f));
-            yMin = Mathf.Min(yMin, childYMin);
-            yMax = Mathf.Max(yMax, child.position.y + (child.lossyScale.y * 0.5f));
-            yMax = Mathf.Max(yMax, childYMax);
-        }
-        return (yMin, yMax);
-    }
-
-    public static Bounds GetHierarchyBounds(Transform root)
-    {
-        // 1. root와 그 아래 모든 자식들로부터 Renderer 컴포넌트를 전부 가져옵니다.
-        // 이 함수가 재귀 탐색의 역할을 대신해 줍니다.
-        Renderer[] renderers = root.GetComponentsInChildren<Renderer>();
-
-        // 2. 렌더러가 하나도 없으면, 계산할 수 없으므로 크기가 0인 Bounds를 반환합니다.
-        if (renderers.Length == 0)
-        {
-            Debug.LogWarning("GetHierarchyBounds: 지정된 오브젝트와 그 자식들 내에 Renderer 컴포넌트가 없습니다.", root);
-            return new Bounds(root.position, Vector3.zero);
-        }
-
-        // 3. 첫 번째 렌더러의 경계를 초기 전체 경계(Total Bounds)로 설정합니다.
-        Bounds totalBounds = renderers[0].bounds;
-
-        // 4. 나머지 모든 렌더러들의 경계를 순회하며 전체 경계에 포함시킵니다(Encapsulate).
-        // Encapsulate 메서드는 기존 Bounds를 확장하여 파라미터로 받은 다른 Bounds를
-        // 완전히 포함하도록 만듭니다. 이것이 경계를 병합하는 가장 효율적인 방법입니다.
-        for (int i = 1; i < renderers.Length; i++)
-        {
-            totalBounds.Encapsulate(renderers[i].bounds);
-        }
-
-        // 5. 최종적으로 계산된 전체 경계를 반환합니다.
-        return totalBounds;
     }
 }

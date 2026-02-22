@@ -6,7 +6,7 @@ public class GameManager : MonoBehaviour
     private static GameManager instance = null;
 
     public Dungeon dungeon = null;
-    public Character player = null;
+    public Player player = null;
 
     private bool hasFoundExit = false;
 
@@ -37,6 +37,10 @@ public class GameManager : MonoBehaviour
 
     private void Start()
     {
+        // 마우스 커서 잠금 및 숨김 설정
+        Cursor.lockState = CursorLockMode.Locked;
+        Cursor.visible = false;
+
         // UI Canvas 생성
         CreateCanvas();
         Debug.Log("Canvas created in Start()");
@@ -65,6 +69,36 @@ public class GameManager : MonoBehaviour
         CheckExitReached();
         UpdateTimer();
     }
+
+    private void HandleInput()
+    {
+        // ESC 키: 마우스 락 토글
+        if (Input.GetKeyDown(KeyCode.Escape))
+        {
+            ToggleMouseLock();
+            return;
+        }
+    }
+
+    /// <summary>
+    /// 마우스 락 상태를 토글합니다 (ESC 키로 실행).
+    /// </summary>
+    void ToggleMouseLock()
+    {
+        if (Cursor.lockState == CursorLockMode.Locked)
+        {
+            Cursor.lockState = CursorLockMode.None;
+            Cursor.visible = true;
+            Debug.Log("Mouse unlocked");
+        }
+        else
+        {
+            Cursor.lockState = CursorLockMode.Locked;
+            Cursor.visible = false;
+            Debug.Log("Mouse locked");
+        }
+    }
+
 
     /// <summary>
     /// Canvas를 생성합니다.

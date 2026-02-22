@@ -1,10 +1,10 @@
 ﻿using UnityEngine;
-using static VoxelCharacter;
+using static PlayerModel;
 
-public class Character : MonoBehaviour
+public class Player : MonoBehaviour
 {
     // Start is called once before the first execution of Update after the MonoBehaviour is created
-    private VoxelCharacter voxelCharacter;
+    private PlayerModel playerModel;
     private Camera mainCamera;
     
     [Header("Camera Settings")]
@@ -32,12 +32,12 @@ public class Character : MonoBehaviour
     
     void Start()
     {
-        voxelCharacter = GetComponent<VoxelCharacter>();
-        voxelCharacter.Build();
+        playerModel = GetComponent<PlayerModel>();
+        playerModel.Build();
 
         GameObject weapon = new GameObject("Sword");
         Sword sword = weapon.AddComponent<Sword>();
-        sword.Build(voxelCharacter.RightHand);
+        sword.Build(playerModel.RightHand);
 
         // 메인 카메라 설정
         mainCamera = Camera.main;
@@ -49,18 +49,14 @@ public class Character : MonoBehaviour
         // Shoot Point 설정 (카릭터의 오른손에서 projectile 발사)
         if (shootPoint == null)
         {
-            shootPoint = voxelCharacter.RightHand;
+            shootPoint = playerModel.RightHand;
         }
 
         // Physics 레이어 충돌 설정: Character와 Column 충돌 무시
         int characterLayer = gameObject.layer;
         int columnLayer = LayerMask.NameToLayer("DungeonColumn");
         Physics.IgnoreLayerCollision(characterLayer, columnLayer, true);
-
-        // 마우스 커서 잠금 및 숨김 설정
-        Cursor.lockState = CursorLockMode.Locked;
-        Cursor.visible = false;
-
+        
         // 방향 지시자(삼각형) 생성
         CreateDirectionIndicator();
     }
@@ -92,7 +88,7 @@ public class Character : MonoBehaviour
 
         // 게임 오브젝트 생성
         directionIndicator = new GameObject("DirectionIndicator");
-        directionIndicator.transform.SetParent(voxelCharacter.Head, false);
+        directionIndicator.transform.SetParent(playerModel.Head, false);
         directionIndicator.transform.localPosition = new Vector3(0, 6.0f, 0);
         directionIndicatorTransform = directionIndicator.transform;
 
@@ -122,20 +118,13 @@ public class Character : MonoBehaviour
     {
         if(true == Input.GetKeyDown(KeyCode.H))
         {
-            voxelCharacter.PlayAnimation(VoxelCharacter.CharacterState.Hurt);
+            playerModel.PlayAnimation(PlayerModel.ActorState.Hurt);
             return;
         }
 
         if(true == Input.GetKeyDown(KeyCode.K))
         {
-            voxelCharacter.PlayAnimation(VoxelCharacter.CharacterState.Dead);
-            return;
-        }
-
-        // ESC 키: 마우스 락 토글
-        if (Input.GetKeyDown(KeyCode.Escape))
-        {
-            ToggleMouseLock();
+            playerModel.PlayAnimation(PlayerModel.ActorState.Dead);
             return;
         }
 
@@ -149,7 +138,7 @@ public class Character : MonoBehaviour
         // 마우스 왼쪽 클릭: Projectile 발사
         if (Input.GetMouseButtonDown(0))
         {
-            voxelCharacter.PlayAnimation(VoxelCharacter.CharacterState.Attack);
+            playerModel.PlayAnimation(PlayerModel.ActorState.Attack);
             ShootProjectile();
             return;
         }
@@ -161,25 +150,7 @@ public class Character : MonoBehaviour
         HandleMovementInput();
     }
 
-    /// <summary>
-    /// 마우스 락 상태를 토글합니다 (ESC 키로 실행).
-    /// </summary>
-    void ToggleMouseLock()
-    {
-        if (Cursor.lockState == CursorLockMode.Locked)
-        {
-            Cursor.lockState = CursorLockMode.None;
-            Cursor.visible = true;
-            Debug.Log("Mouse unlocked");
-        }
-        else
-        {
-            Cursor.lockState = CursorLockMode.Locked;
-            Cursor.visible = false;
-            Debug.Log("Mouse locked");
-        }
-    }
-
+    
     /// <summary>
     /// 마우스 좌우 이동으로 캐릭터의 방향을 조절합니다.
     /// </summary>
@@ -235,7 +206,7 @@ public class Character : MonoBehaviour
         if (isMoving)
         {
             moveDirection.Normalize();
-            voxelCharacter.PlayAnimation(VoxelCharacter.CharacterState.Walk);
+            playerModel.PlayAnimation(PlayerModel.ActorState.Walk);
         }
     }
 
