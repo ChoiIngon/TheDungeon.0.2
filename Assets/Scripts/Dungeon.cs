@@ -1,5 +1,7 @@
 ﻿using System.Collections.Generic;
+using Unity.VisualScripting;
 using UnityEngine;
+using static TileMap;
 
 public class Dungeon : MonoBehaviour
 {
@@ -13,7 +15,7 @@ public class Dungeon : MonoBehaviour
     public GameObject wallPrefab;
     public GameObject floorPrefab;
     public GameObject columnPrefab;
-    public GameObject TorchPrefab;
+    public GameObject torchPrefab;
     public GameObject upStairPrefab;
     public GameObject downStairPrefab;
     public GameObject ceilPrefab;
@@ -60,18 +62,71 @@ public class Dungeon : MonoBehaviour
 
         foreach (var room in tileMap.rooms)
         {
-            CreateRoomObject(room, floorPositions, wallPositions);
+            CreateRoomObject(room, floorPositions);
         }
 
         foreach(var corridor in tileMap.corridors)
         {
-            CreateCorridorObject(corridor, floorPositions, wallPositions);
+            CreateCorridorObject(corridor, floorPositions);
         }
 
         InitializePlayerPosition();
     }
 
-    private void CreateRoomObject(TileMap.Room room, HashSet<Vector3> floorPositions, HashSet<Vector3> wallPositions)
+    private void CreateTorchObject(List<GameObject> walls)
+    {
+        if(0 == walls.Count)
+        {
+            return;
+        }
+
+        int torchCount = walls.Count / 3 + 1;
+        for (int i = 0; i < torchCount; i++)
+        {
+            int index = Random.Range(0, walls.Count);
+            GameObject wallObject = walls[index];
+
+            GameObject torchObject = Instantiate(torchPrefab, wallObject.transform);
+            torchObject.name = $"Torch";
+            torchObject.transform.localPosition = new Vector3(0f, 3.0f, 0.0f);
+            torchObject.transform.localRotation = Quaternion.identity;
+
+            for(int removeIndex = index - 1; removeIndex < index + 1; removeIndex++) 
+            {
+                if(removeIndex < 0 || walls.Count <= removeIndex)
+                {
+                    continue;
+                }
+                walls.RemoveAt(removeIndex);
+            }
+        }
+    }
+
+    private GameObject CreateWallObject(TileMap.Room room, int x, int y, Vector3 offset, float rotationY, Transform parent)
+    {
+        TileMap.Tile tile = tileMap.GetTile(x, y);
+        if(null == tile)
+        {
+            return null;
+        }
+
+        if (true == room.doors.Contains(tile))
+        {
+            return null;
+        }
+
+        Vector3 position = new Vector3(x * TileSize, 0.0f, y * TileSize) + offset;
+        
+        GameObject wallObject = Instantiate(wallPrefab, position, Quaternion.identity);
+        wallObject.name = $"Wall_{tile.index}_{rotationY}";
+        wallObject.layer = LayerMask.NameToLayer("DungeonTile");
+        wallObject.transform.SetParent(parent, false);
+        wallObject.transform.Rotate(0.0f, rotationY, 0.0f);
+
+        return wallObject;
+    }
+
+    private void CreateRoomObject(TileMap.Room room, HashSet<Vector3> floorPositions)
     {
         GameObject roomObject = new GameObject();
         roomObject.name = $"Room_{room.index}";
@@ -104,114 +159,80 @@ public class Dungeon : MonoBehaviour
             }
         }
 
-        for (int x = (int)room.rect.xMin; x < (int)room.rect.xMax; x++)
+        // Top
         {
-            TileMap.Tile top = tileMap.GetTile(x, (int)room.rect.yMax - 1);
-            Vector3 position = new Vector3(top.rect.x * TileSize, 0f, (top.rect.y + 1) * TileSize - TileOffset - 0.2f);
-            if (true == room.doors.Contains(top))
+            List<GameObject> walls = new List<GameObject>();
+            for (int x = (int)room.rect.xMin; x < (int)room.rect.xMax; x++)
             {
-                /*
-                GameObject doorStand = Instantiate(doorStandPrefab, position, Quaternion.identity);
-                doorStand.name = $"DoorStand_{top.index}";
-                doorStand.transform.SetParent(parent, false);
-                doorStand.transform.Rotate(0.0f, 180.0f, 0.0f);
-                */
-                continue;
+                GameObject wallObject = CreateWallObject(room, x, (int)room.rect.yMax - 1, new Vector3(0.0f, 0.0f, (TileSize * 1) -TileOffset - 0.2f), 180.0f, roomObject.transform);
+                if (null == wallObject)
+                {
+                    CreateTorchObject(walls);
+                    walls.Clear();
+                    continue;
+                }
+                walls.Add(wallObject);
             }
 
-            if (false == wallPositions.Contains(position))
-            {
-                GameObject wallObject = Instantiate(wallPrefab, position, Quaternion.identity);
-                wallObject.name = $"Wall_top_{top.index}";
-                wallObject.layer = LayerMask.NameToLayer("DungeonTile");
-                wallObject.transform.SetParent(roomObject.transform, false);
-                wallObject.transform.Rotate(0.0f, 180.0f, 0.0f);
-                wallPositions.Add(position);
-            }
+            CreateTorchObject(walls);
         }
 
-        for (int x = (int)room.rect.xMin; x < (int)room.rect.xMax; x++)
+        // Bottom
         {
-            TileMap.Tile bottom = tileMap.GetTile(x, (int)room.rect.yMin);
-            Vector3 position = new Vector3(bottom.rect.x * TileSize, 0f, bottom.rect.y * TileSize - TileOffset + 0.2f);
-            if (true == room.doors.Contains(bottom))
+            List<GameObject> walls = new List<GameObject>();
+            for (int x = (int)room.rect.xMin; x < (int)room.rect.xMax; x++)
             {
-                /*
-                GameObject doorStand = Instantiate(doorStandPrefab, position, Quaternion.identity);
-                doorStand.name = $"DoorStand_{bottom.index}";
-                doorStand.transform.SetParent(parent, false);
-                doorStand.transform.Rotate(0.0f, 0.0f, 0.0f);
-                */
-                continue;
+                GameObject wallObject = CreateWallObject(room, x, (int)room.rect.yMin, new Vector3(0.0f, 0.0f, (TileSize * 0) - TileOffset + 0.2f), 0.0f, roomObject.transform);
+                if (null == wallObject)
+                {
+                    CreateTorchObject(walls);
+                    walls.Clear();
+                    continue;
+                }
+                walls.Add(wallObject);
             }
 
-            if (false == wallPositions.Contains(position))
-            {
-                GameObject wallObject = Instantiate(wallPrefab, position, Quaternion.identity);
-                wallObject.name = $"Wall_Bottom_{bottom.index}";
-                wallObject.layer = LayerMask.NameToLayer("DungeonTile");
-                wallObject.transform.SetParent(roomObject.transform, false);
-                wallObject.transform.Rotate(0.0f, 0.0f, 0.0f);
-
-                wallPositions.Add(position);
-            }
+            CreateTorchObject(walls);
         }
 
-        for (int y = (int)room.rect.yMin; y < (int)room.rect.yMax; y++)
+        // Left
         {
-            TileMap.Tile left = tileMap.GetTile((int)room.rect.xMin, y);
-            Vector3 position = new Vector3(left.rect.x * TileSize - TileOffset + 0.2f, 0f, left.rect.y * TileSize);
-            if (true == room.doors.Contains(left))
+            List<GameObject> walls = new List<GameObject>();
+            for (int y = (int)room.rect.yMin; y < (int)room.rect.yMax; y++)
             {
-                /*
-                GameObject doorStand = Instantiate(doorStandPrefab, position, Quaternion.identity);
-                doorStand.name = $"DoorStand_{left.index}";
-                doorStand.transform.SetParent(parent, false);
-                doorStand.transform.Rotate(0.0f, 90.0f, 0.0f);
-                */
-                continue;
+                GameObject wallObject = CreateWallObject(room, (int)room.rect.xMin, y, new Vector3((TileSize * 0) - TileOffset + 0.2f, 0.0f, 0.0f), 90.0f, roomObject.transform);
+                if (null == wallObject)
+                {
+                    CreateTorchObject(walls);
+                    walls.Clear();
+                    continue;
+                }
+                walls.Add(wallObject);
             }
-            if (false == wallPositions.Contains(position))
-            {
-                GameObject wallObject = Instantiate(wallPrefab, position, Quaternion.identity);
-                wallObject.name = $"Wall_Left_{left.index}";
-                wallObject.layer = LayerMask.NameToLayer("DungeonTile");
-                wallObject.transform.SetParent(roomObject.transform, false);
-                wallObject.transform.Rotate(0.0f, 90.0f, 0.0f);
 
-                wallPositions.Add(position);
-            }
+            CreateTorchObject(walls);
         }
 
-        for (int y = (int)room.rect.yMin; y < (int)room.rect.yMax; y++)
+        // Right
         {
-            TileMap.Tile right = tileMap.GetTile((int)room.rect.xMax - 1, y);
-            Vector3 position = new Vector3(right.rect.x * TileSize + TileOffset - 0.2f, 0f, right.rect.y * TileSize);
-            if (true == room.doors.Contains(right))
+            List<GameObject> walls = new List<GameObject>();
+            for (int y = (int)room.rect.yMin; y < (int)room.rect.yMax; y++)
             {
-                /*
-                GameObject doorStand = Instantiate(doorStandPrefab, position, Quaternion.identity);
-                doorStand.name = $"DoorStand_{right.index}";
-                doorStand.transform.SetParent(parent, false);
-                doorStand.transform.Rotate(0.0f, 270.0f, 0.0f);
-                */
-                continue;
+                GameObject wallObject = CreateWallObject(room, (int)room.rect.xMax - 1, y, new Vector3((TileSize * 1) - TileOffset - 0.2f, 0.0f, 0.0f), 270.0f, roomObject.transform);
+                if (null == wallObject)
+                {
+                    CreateTorchObject(walls);
+                    walls.Clear();
+                    continue;
+                }
+                walls.Add(wallObject);
             }
-             
-            if (false == wallPositions.Contains(position))
-            {
-                GameObject wallObject = Instantiate(wallPrefab, position, Quaternion.identity);
-                wallObject.name = $"Wall_Right_{right.index}";
-                wallObject.layer = LayerMask.NameToLayer("DungeonTile");
-                wallObject.transform.SetParent(roomObject.transform, false);
-                wallObject.transform.Rotate(0.0f, 270.0f, 0.0f);
 
-                wallPositions.Add(position);
-            }
+            CreateTorchObject(walls);
         }
     }
 
-    private void CreateCorridorObject(TileMap.Corridor corridor, HashSet<Vector3> floorPositions, HashSet<Vector3> wallPositions)
+    private void CreateCorridorObject(TileMap.Corridor corridor, HashSet<Vector3> floorPositions)
     {
         if (2 >= corridor.tiles.Count)
         {
@@ -221,6 +242,11 @@ public class Dungeon : MonoBehaviour
         GameObject corridorObject = new GameObject();
         corridorObject.name = $"Corridor";
         corridorObject.transform.SetParent(this.tiles.transform, false);
+
+        List<GameObject> topWalls = new List<GameObject>();
+        List<GameObject> rightWalls = new List<GameObject>();
+        List<GameObject> bottomWalls = new List<GameObject>();
+        List<GameObject> leftWalls = new List<GameObject>();
 
         foreach (TileMap.Tile tile in corridor.tiles)
         {
@@ -252,59 +278,52 @@ public class Dungeon : MonoBehaviour
             if (true == hasTopWall)
             {
                 Vector3 position = new Vector3(tile.rect.x * TileSize, 0.0f, tile.rect.y * TileSize + TileOffset);
-                if (false == wallPositions.Contains(position))
-                {
-                    GameObject wallObject = Instantiate(wallPrefab, position, Quaternion.identity);
-                    wallObject.name = $"Wall_Top_{tile.index}";
-                    wallObject.layer = LayerMask.NameToLayer("DungeonTile");
-                    wallObject.transform.SetParent(corridorObject.transform, false);
-                    wallObject.transform.Rotate(0.0f, 180.0f, 0.0f);
-                    wallPositions.Add(position);
-                }
+                GameObject wallObject = Instantiate(wallPrefab, position, Quaternion.identity);
+                wallObject.name = $"Wall_Top_{tile.index}";
+                wallObject.layer = LayerMask.NameToLayer("DungeonTile");
+                wallObject.transform.SetParent(corridorObject.transform, false);
+                wallObject.transform.Rotate(0.0f, 180.0f, 0.0f);
+                topWalls.Add(wallObject);
             }
 
             if (true == hasBottomWall)
             {
                 Vector3 position = new Vector3(tile.rect.x * TileSize, 0.0f, tile.rect.y * TileSize - TileOffset);
-                if (false == wallPositions.Contains(position))
-                {
-                    GameObject wallObject = Instantiate(wallPrefab, position, Quaternion.identity);
-                    wallObject.name = $"Wall_Bottom_{tile.index}";
-                    wallObject.layer = LayerMask.NameToLayer("DungeonTile");
-                    wallObject.transform.SetParent(corridorObject.transform, false);
-                    wallObject.transform.Rotate(0.0f, 0.0f, 0.0f);
-                    wallPositions.Add(position);
-                }
+                GameObject wallObject = Instantiate(wallPrefab, position, Quaternion.identity);
+                wallObject.name = $"Wall_Bottom_{tile.index}";
+                wallObject.layer = LayerMask.NameToLayer("DungeonTile");
+                wallObject.transform.SetParent(corridorObject.transform, false);
+                wallObject.transform.Rotate(0.0f, 0.0f, 0.0f);
+                bottomWalls.Add(wallObject);
             }
 
             if (true == hasLeftWall)
             {
                 Vector3 position = new Vector3(tile.rect.x * TileSize - TileOffset, 0.0f, tile.rect.y * TileSize);
-                if (false == wallPositions.Contains(position))
-                {
-                    GameObject wallObject = Instantiate(wallPrefab, position, Quaternion.identity);
-                    wallObject.name = $"Wall_Left_{tile.index}";
-                    wallObject.layer = LayerMask.NameToLayer("DungeonTile");
-                    wallObject.transform.SetParent(corridorObject.transform, false);
-                    wallObject.transform.Rotate(0.0f, 90.0f, 0.0f);
-                    wallPositions.Add(position);
-                }
+                GameObject wallObject = Instantiate(wallPrefab, position, Quaternion.identity);
+                wallObject.name = $"Wall_Left_{tile.index}";
+                wallObject.layer = LayerMask.NameToLayer("DungeonTile");
+                wallObject.transform.SetParent(corridorObject.transform, false);
+                wallObject.transform.Rotate(0.0f, 90.0f, 0.0f);
+                leftWalls.Add(wallObject);
             }
 
             if (true == hasRightWall)
             {
                 Vector3 position = new Vector3(tile.rect.x * TileSize + TileOffset, 0.0f, tile.rect.y * TileSize);
-                if (false == wallPositions.Contains(position))
-                {
-                    GameObject wallObject = Instantiate(wallPrefab, position, Quaternion.identity);
-                    wallObject.name = $"Wall_Right_{tile.index}";
-                    wallObject.layer = LayerMask.NameToLayer("DungeonTile");
-                    wallObject.transform.SetParent(corridorObject.transform, false);
-                    wallObject.transform.Rotate(0.0f, 270.0f, 0.0f);
-                    wallPositions.Add(position);
-                }
+                GameObject wallObject = Instantiate(wallPrefab, position, Quaternion.identity);
+                wallObject.name = $"Wall_Right_{tile.index}";
+                wallObject.layer = LayerMask.NameToLayer("DungeonTile");
+                wallObject.transform.SetParent(corridorObject.transform, false);
+                wallObject.transform.Rotate(0.0f, 270.0f, 0.0f);
+                rightWalls.Add(wallObject);
             }
         }
+
+        CreateTorchObject(topWalls);
+        CreateTorchObject(rightWalls);
+        CreateTorchObject(bottomWalls);
+        CreateTorchObject(leftWalls);
     }
 
     private void CreateColumnObject(Vector3 position, Transform parent)
