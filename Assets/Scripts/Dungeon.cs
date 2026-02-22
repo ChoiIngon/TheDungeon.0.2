@@ -110,12 +110,39 @@ public class Dungeon : MonoBehaviour
             return null;
         }
 
+        Vector3 position = new Vector3(x * TileSize, 0.0f, y * TileSize) + offset;
+
         if (true == room.doors.Contains(tile))
         {
+            int [] directions = new int[]
+            {
+                TileMap.Tile.Direction.Top,
+                TileMap.Tile.Direction.Right,
+                TileMap.Tile.Direction.Bottom,
+                TileMap.Tile.Direction.Left
+            };
+
+            bool createDoor = true;
+            for(int i=0;i< directions.Length; i++)
+            {
+                TileMap.Tile neighbor = tile.neighbors[directions[i]];
+                if (neighbor.room != null && neighbor.room != room && neighbor.room.index < room.index)
+                {
+                    createDoor = false;
+                }
+            }
+
+            if (true == createDoor)
+            {
+                GameObject doorObject = Instantiate(doorStandPrefab, position, Quaternion.identity);
+                doorObject.name = $"Door_{tile.index}_{rotationY}";
+                doorObject.layer = LayerMask.NameToLayer("DungeonTile");
+                doorObject.transform.SetParent(parent, false);
+                doorObject.transform.Rotate(0.0f, rotationY, 0.0f);
+            }
+
             return null;
         }
-
-        Vector3 position = new Vector3(x * TileSize, 0.0f, y * TileSize) + offset;
         
         GameObject wallObject = Instantiate(wallPrefab, position, Quaternion.identity);
         wallObject.name = $"Wall_{tile.index}_{rotationY}";

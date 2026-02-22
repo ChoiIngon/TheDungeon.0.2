@@ -23,6 +23,12 @@ public class Character : MonoBehaviour
     [Header("Direction Indicator Settings")]
     private GameObject directionIndicator;
     private Transform directionIndicatorTransform;
+
+    [Header("Mouse Control Settings")]
+    public float mouseSensitivity = 2f;
+
+    [Header("Interaction Settings")]
+    public float interactionDistance = 10f;
     
     void Start()
     {
@@ -50,6 +56,10 @@ public class Character : MonoBehaviour
         int characterLayer = gameObject.layer;
         int columnLayer = LayerMask.NameToLayer("DungeonColumn");
         Physics.IgnoreLayerCollision(characterLayer, columnLayer, true);
+
+        // 마우스 커서 잠금 및 숨김 설정
+        Cursor.lockState = CursorLockMode.Locked;
+        Cursor.visible = false;
 
         // 방향 지시자(삼각형) 생성
         CreateDirectionIndicator();
@@ -122,16 +132,67 @@ public class Character : MonoBehaviour
             return;
         }
 
-        // Spacebar: Projectile 발사
+        // ESC 키: 마우스 락 토글
+        if (Input.GetKeyDown(KeyCode.Escape))
+        {
+            ToggleMouseLock();
+            return;
+        }
+
+        // 스페이스 키: 상호작용
         if (Input.GetKeyDown(KeyCode.Space))
+        {
+            InteractObject();
+            return;
+        }
+
+        // 마우스 왼쪽 클릭: Projectile 발사
+        if (Input.GetMouseButtonDown(0))
         {
             voxelCharacter.PlayAnimation(VoxelCharacter.CharacterState.Attack);
             ShootProjectile();
             return;
         }
 
+        // 마우스 이동으로 캐릭터 방향 조절
+        HandleMouseRotation();
+
         // 이동 입력 처리
         HandleMovementInput();
+    }
+
+    /// <summary>
+    /// 마우스 락 상태를 토글합니다 (ESC 키로 실행).
+    /// </summary>
+    void ToggleMouseLock()
+    {
+        if (Cursor.lockState == CursorLockMode.Locked)
+        {
+            Cursor.lockState = CursorLockMode.None;
+            Cursor.visible = true;
+            Debug.Log("Mouse unlocked");
+        }
+        else
+        {
+            Cursor.lockState = CursorLockMode.Locked;
+            Cursor.visible = false;
+            Debug.Log("Mouse locked");
+        }
+    }
+
+    /// <summary>
+    /// 마우스 좌우 이동으로 캐릭터의 방향을 조절합니다.
+    /// </summary>
+    void HandleMouseRotation()
+    {
+        float mouseX = Input.GetAxis("Mouse X");
+        
+        if (Mathf.Abs(mouseX) > 0.01f)
+        {
+            // 마우스 X 움직임에 따라 Y축 회전
+            float rotationAmount = mouseX * mouseSensitivity;
+            transform.Rotate(0, rotationAmount, 0, Space.Self);
+        }
     }
 
     /// <summary>
@@ -143,28 +204,28 @@ public class Character : MonoBehaviour
         bool isMoving = false;
 
         // W 키: 전진
-        if (Input.GetKey(KeyCode.UpArrow))
+        if (Input.GetKey(KeyCode.W))
         {
             moveDirection += transform.forward;
             isMoving = true;
         }
 
         // S 키: 후진
-        if (Input.GetKey(KeyCode.DownArrow))
+        if (Input.GetKey(KeyCode.S))
         {
             moveDirection -= transform.forward;
             isMoving = true;
         }
 
         // D 키: 우측
-        if (Input.GetKey(KeyCode.RightArrow))
+        if (Input.GetKey(KeyCode.D))
         {
             moveDirection += transform.right;
             isMoving = true;
         }
 
         // A 키: 좌측
-        if (Input.GetKey(KeyCode.LeftArrow))
+        if (Input.GetKey(KeyCode.A))
         {
             moveDirection -= transform.right;
             isMoving = true;
@@ -221,13 +282,7 @@ public class Character : MonoBehaviour
     {
         if (moveDirection.magnitude > 0.01f)
         {
-            // 캐릭터를 이동 방향으로 회전
-            if (Input.GetKey(KeyCode.LeftArrow) || Input.GetKey(KeyCode.RightArrow))
-            {
-                Quaternion targetRotation = Quaternion.LookRotation(moveDirection);
-                transform.rotation = Quaternion.Lerp(transform.rotation, targetRotation, Time.deltaTime * 5f);
-            }
-
+            
             // 이동 벡터 계산
             Vector3 movement = moveDirection * moveSpeed * Time.deltaTime;
             Vector3 newPosition = transform.position + movement;
@@ -236,7 +291,7 @@ public class Character : MonoBehaviour
             if (null != collidingObject)
             {
                 // 충돌한 벽의 Z축 법선 벡터 계산
-                if (Input.GetKey(KeyCode.UpArrow))
+                if (Input.GetKey(KeyCode.W))
                 {
                     Vector3 wallNormal = collidingObject.transform.forward;
                     // Y축 무시 (수평 평면만 고려)
@@ -345,4 +400,41 @@ public class Character : MonoBehaviour
         // 부모(머리)의 로컬 좌표계에서 회전
         directionIndicatorTransform.localRotation = Quaternion.identity;
     }
+
+    private void InteractObject()
+    {
+        // 캐릭터의 중심에서 전방으로 레이캐스팅 시작
+        Vector3 rayOrigin = transform.position + Vector3.up * 0.5f;
+        Vector3 rayDirection = transform.forward;
+
+        RaycastHit hit;
+        bool hasHit = Physics.Raycast(rayOrigin, rayDirection, out hit, interactionDistance);
+
+        if (hasHit)
+        {
+            Debug.Log($"상호작용 오브젝트 탐지됨: {hit.collider.gameObject.name}");
+            Debug.Log($"거리: {hit.distance:F2}");
+            Debug.Log($"위치: {hit.point}");
+
+            // 탐지된 오브젝트에서 IInteractable 인터페이스 확인
+            IInteractable interactable = hit.collider.GetComponent<IInteractable>();
+            if (interactable != null)
+            {
+                interactable.Interact();
+                Debug.Log($"상호작용 실행: {hit.collider.gameObject.name}");
+            }
+            else
+            {
+                Debug.Log($"오브젝트 '{hit.collider.gameObject.name}'에 상호작용 컴포넌트가 없습니다.");
+            }
+        }
+        else
+        {
+            Debug.Log($"상호작용 범위({interactionDistance}m) 내에 오브젝트가 없습니다.");
+        }
+
+        // 디버그: 레이캐스트 시각화
+        Debug.DrawRay(rayOrigin, rayDirection * interactionDistance, hasHit ? Color.green : Color.red, 1f);
+    }
 }
+

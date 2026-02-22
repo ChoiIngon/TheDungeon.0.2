@@ -21,7 +21,7 @@ RenderSettings:
   m_LinearFogStart: 0
   m_LinearFogEnd: 300
   m_AmbientSkyColor: {r: 0.07351365, g: 0.09560086, b: 0.17576635, a: 1}
-  m_AmbientEquatorColor: {r: 0.114, g: 0.125, b: 0.133, a: 1}
+  m_AmbientEquatorColor: {r: 0.07206425, g: 0.09223752, b: 0.17095722, a: 1}
   m_AmbientGroundColor: {r: 0.047, g: 0.043, b: 0.035, a: 1}
   m_AmbientIntensity: 1
   m_AmbientMode: 3
@@ -35,7 +35,7 @@ RenderSettings:
   m_DefaultReflectionMode: 1
   m_DefaultReflectionResolution: 128
   m_ReflectionBounces: 1
-  m_ReflectionIntensity: 0.7
+  m_ReflectionIntensity: 1
   m_CustomReflection: {fileID: 0}
   m_Sun: {fileID: 410087040}
   m_UseRadianceAmbientProbe: 0
@@ -673,7 +673,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 28bedb1a936beee4a8d3588e711aa701, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Dungeon2
-  doorStandPrefab: {fileID: 8644115839786080152, guid: 4963b55652180e946b10fda98efef25e, type: 3}
+  doorStandPrefab: {fileID: 7415011182353848556, guid: 610ef74a2783f8044ad6bad50171c2d2, type: 3}
   wallPrefab: {fileID: 1159351990771520630, guid: 91ad7bf144749b04ab484a680630a040, type: 3}
   floorPrefab: {fileID: 7564636611156017616, guid: e7a79a14190d3d34f93236ba7164d734, type: 3}
   columnPrefab: {fileID: 178811535428721102, guid: f8c0297a8d99e2747baeb5697c8ecb66, type: 3}
@@ -681,7 +681,7 @@ MonoBehaviour:
   upStairPrefab: {fileID: 3186273480270015193, guid: 906bbe959a9835541977e6f782de8e83, type: 3}
   downStairPrefab: {fileID: 2011357107571826973, guid: 556572e4cfc506047bad4a3599b9686a, type: 3}
   ceilPrefab: {fileID: 4580446331104520154, guid: 9f2ed2ef64d0a59419c4791d6ddda859, type: 3}
-  randomSeed: 0
+  randomSeed: 612600915
   roomCount: 10
   minRoomSize: 3
   maxRoomSize: 6
@@ -763,6 +763,8 @@ MonoBehaviour:
   projectilePrefab: {fileID: 100000, guid: 863af2aed5e75e844ab1a6ab85686ce5, type: 3}
   shootPoint: {fileID: 0}
   projectileSpeed: 20
+  mouseSensitivity: 2
+  interactionDistance: 10
 --- !u!4 &1439034613
 Transform:
   m_ObjectHideFlags: 0

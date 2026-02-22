@@ -1,9 +1,5 @@
-﻿using NUnit.Framework;
-using System.Collections.Generic;
-using System.Linq;
-using Unity.VisualScripting;
+﻿using System.Collections.Generic;
 using UnityEngine;
-using static TileMap;
 
 public class LevelGenerator
 {
@@ -12,20 +8,21 @@ public class LevelGenerator
 
     public struct PathKey
     {
-        public PathKey(Room start, Room end)
+        public PathKey(TileMap.Room start, TileMap.Room end)
         {
             this.start = start;
             this.end = end;
         }
 
-        public Room start;
-        public Room end;
+        public TileMap.Room start;
+        public TileMap.Room end;
     }
 
-    private Dictionary<PathKey, List<Room>> paths = new Dictionary<PathKey, List<Room>>();
+    private Dictionary<PathKey, List<TileMap.Room>> paths = new Dictionary<PathKey, List<TileMap.Room>>();
 
     private TileMap.Room StartRoom;
     private TileMap.Room EndRoom;
+    private TileMap.Room LockedRoom;
 
     public TileMap.Tile Start { get; private set; }
     public TileMap.Tile End { get; private set; }
@@ -36,6 +33,7 @@ public class LevelGenerator
 
         InitializeRoomPaths();
         InitializeGates();
+        SelectLockedRoom();
     }
 
     private void InitializeRoomPaths()
@@ -44,8 +42,8 @@ public class LevelGenerator
         {
             for (int j = i + 1; j < tileMap.rooms.Count; j++)
             {
-                Room start = tileMap.rooms[i];
-                Room end = tileMap.rooms[j];
+                TileMap.Room start = tileMap.rooms[i];
+                TileMap.Room end = tileMap.rooms[j];
                 paths.Add(new PathKey(start, end), tileMap.FindPath(start, end));
                 paths.Add(new PathKey(end, start), tileMap.FindPath(end, start));
             }
@@ -54,19 +52,19 @@ public class LevelGenerator
 
     private void InitializeGates()
     {
-        List<Room> furthestPath = GetFurthestPath();
+        List<TileMap.Room> furthestPath = GetFurthestPath();
         this.StartRoom = furthestPath[0];
         this.EndRoom = furthestPath[furthestPath.Count - 1];
 
         if (this.StartRoom.doors.Count < this.EndRoom.doors.Count)
         {
-            Room tmp = StartRoom;
+            TileMap.Room tmp = StartRoom;
             this.StartRoom = EndRoom;
             this.EndRoom = tmp;
         }
 
-        Tile startTile = tileMap.GetTile((int)this.StartRoom.rect.center.x, (int)this.StartRoom.rect.center.y);
-        Tile endTile = tileMap.GetTile((int)this.EndRoom.rect.center.x, (int)this.EndRoom.rect.center.y);
+        TileMap.Tile startTile = tileMap.GetTile((int)this.StartRoom.rect.center.x, (int)this.StartRoom.rect.center.y);
+        TileMap.Tile endTile = tileMap.GetTile((int)this.EndRoom.rect.center.x, (int)this.EndRoom.rect.center.y);
         var tilePath = tileMap.FindPath(endTile, startTile);
 
         if (tilePath.Count > MaxJourneyTileCount)
@@ -86,9 +84,55 @@ public class LevelGenerator
         this.End = GetRandomTileInRoom(EndRoom, -1);
     }
 
+    /// <summary>
+    /// 잠겨야 하는 방을 선택합니다.
+    /// 1. StartRoom과 EndRoom을 제외한 방 중에서 선택
+    /// 2. StartRoom에서 도달 가능한 위치에 있는 방 중에서 선택
+    /// </summary>
+    private void SelectLockedRoom()
+    {
+        List<TileMap.Room> candidateRooms = new List<TileMap.Room>();
+
+        // StartRoom에서 도달 가능한 모든 방을 수집
+        foreach (var pair in paths)
+        {
+            // StartRoom에서 출발하는 경로만 확인
+            if (pair.Key.start != StartRoom)
+            {
+                continue;
+            }
+
+            TileMap.Room room = pair.Key.end;
+
+            // StartRoom과 EndRoom을 제외
+            if (room == StartRoom || room == EndRoom)
+            {
+                continue;
+            }
+
+            // 도달 가능한 경로가 존재하면 후보에 추가
+            if (pair.Value != null && pair.Value.Count > 0)
+            {
+                candidateRooms.Add(room);
+            }
+        }
+
+        // 후보 방들 중에서 무작위로 선택
+        if (candidateRooms.Count > 0)
+        {
+            this.LockedRoom = candidateRooms[Random.Range(0, candidateRooms.Count)];
+            Debug.Log($"Locked room selected: Room {LockedRoom.index}");
+        }
+        else
+        {
+            Debug.LogWarning("No suitable room found for locking.");
+            this.LockedRoom = null;
+        }
+    }
+
     private List<TileMap.Room> GetFurthestPath()
     {
-        List<Room> furthestPath = new List<Room>();
+        List<TileMap.Room> furthestPath = new List<TileMap.Room>();
         foreach (var pair in paths)
         {
             if (furthestPath.Count < pair.Value.Count)
@@ -100,7 +144,7 @@ public class LevelGenerator
         return furthestPath;
     }
 
-    private Tile GetRandomTileInRoom(Room room, int offset)
+    private TileMap.Tile GetRandomTileInRoom(TileMap.Room room, int offset)
     {
         Rect floorRect = room.GetFloorRect();
 
