@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using Unity.AI.Navigation;
 using Unity.VisualScripting;
 using UnityEngine;
 using static TileMap;
@@ -36,20 +37,29 @@ public class Dungeon : MonoBehaviour
     public GameObject Start { get; private set; } = null;
     public TileMap.Tile End { get; private set; } = null;
 
-    private Transform tiles;
+    private GameObject tiles;
 
     public void Generate()
     {
         Clear();
 
-        GameObject tilesObject = new GameObject();
-        tilesObject.name = "Tiles";
-        tilesObject.transform.SetParent(transform, false);
-        tilesObject.transform.localPosition = Vector3.zero;
-        this.tiles = tilesObject.transform;
+        tiles = new GameObject();
+        tiles.name = "Tiles";
+        tiles.transform.SetParent(transform, false);
+        tiles.transform.localPosition = Vector3.zero;
+        NavMeshSurface navMeshSurface = tiles.AddComponent<NavMeshSurface>();
+        navMeshSurface.layerMask = LayerMask.GetMask("WalkableGround");
 
         InitializeRandomSeed();
 
+        Build();
+
+        InitializePlayerPosition();
+        InitializeEnemy();
+    }
+
+    private void Build()
+    {
         tileMap = new TileMap(roomCount, minRoomSize, maxRoomSize);
         levelGenerator = new LevelGenerator(tileMap);
 
@@ -66,13 +76,13 @@ public class Dungeon : MonoBehaviour
             CreateRoomObject(room, floorPositions);
         }
 
-        foreach(var corridor in tileMap.corridors)
+        foreach (var corridor in tileMap.corridors)
         {
             CreateCorridorObject(corridor, floorPositions);
         }
 
-        InitializePlayerPosition();
-        InitializeEnemy();
+        NavMeshSurface navMeshSurface = tiles.GetComponent<NavMeshSurface>();
+        navMeshSurface.BuildNavMesh();
     }
 
     private void CreateTorchObject(List<GameObject> walls)
@@ -174,6 +184,7 @@ public class Dungeon : MonoBehaviour
                     GameObject floorObject = Instantiate(floorPrefab, position, Quaternion.identity);
                     floorObject.name = $"Floor_{tile.index}";
                     floorObject.transform.SetParent(roomObject.transform, false);
+                    floorObject.layer = LayerMask.NameToLayer("WalkableGround");
                     floorPositions.Add(position);
                 }
 
@@ -290,6 +301,7 @@ public class Dungeon : MonoBehaviour
                 GameObject floorObject = Instantiate(floorPrefab, position, Quaternion.identity);
                 floorObject.name = $"Floor_{tile.index}";
                 floorObject.transform.SetParent(corridorObject.transform, false);
+                floorObject.layer = LayerMask.NameToLayer("WalkableGround");
                 floorPositions.Add(position);
 
                 // 천장
@@ -370,15 +382,15 @@ public class Dungeon : MonoBehaviour
         }
 
         // Tiles의 모든 자식 오브젝트 제거
-        int childCount = this.tiles.childCount;
-        while (0 < this.tiles.childCount)
+        int childCount = this.tiles.transform.childCount;
+        while (0 < this.tiles.transform.childCount)
         {
-            Transform child = this.tiles.GetChild(0);
+            Transform child = this.tiles.transform.GetChild(0);
             child.SetParent(null);
             GameObject.Destroy(child.gameObject);
         }
 
-        GameObject.Destroy(this.tiles.gameObject);
+        GameObject.Destroy(this.tiles);
         this.tiles = null;
     }
 
@@ -527,7 +539,7 @@ public class Dungeon : MonoBehaviour
             // enemy 생성
             GameObject enemy = Instantiate(enemyPrefab, enemyPosition, Quaternion.identity, transform);
             enemy.name = $"Enemy_{randomX}_{randomY}";
-            enemy.transform.SetParent(this.tiles, false);
+            enemy.transform.SetParent(this.tiles.transform, false);
         }
     }
 }

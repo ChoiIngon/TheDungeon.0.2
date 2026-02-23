@@ -1,13 +1,16 @@
 ﻿using UnityEngine;
+using UnityEngine.AI;
 
 public class Enemy : MonoBehaviour
 {
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     private GrimReaper enemyModel;
     private const float DetectionDistance = 10.0f;
+    private NavMeshAgent navMeshAgent;
 
     void Start()
     {
+        navMeshAgent = GetComponent<NavMeshAgent>();
         enemyModel = GetComponent<GrimReaper>();
         enemyModel.Build();
     }
@@ -21,6 +24,7 @@ public class Enemy : MonoBehaviour
         if (distanceToPlayer <= DetectionDistance)
         {
             LookAtPlayer();
+            navMeshAgent.SetDestination(player.transform.position);
         }
     }
 

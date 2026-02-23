@@ -681,7 +681,7 @@ MonoBehaviour:
   upStairPrefab: {fileID: 3186273480270015193, guid: 906bbe959a9835541977e6f782de8e83, type: 3}
   downStairPrefab: {fileID: 2011357107571826973, guid: 556572e4cfc506047bad4a3599b9686a, type: 3}
   ceilPrefab: {fileID: 4580446331104520154, guid: 9f2ed2ef64d0a59419c4791d6ddda859, type: 3}
-  randomSeed: 0
+  randomSeed: 612600915
   roomCount: 10
   minRoomSize: 3
   maxRoomSize: 6

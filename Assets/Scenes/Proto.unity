@@ -557,6 +557,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: GrimReaper
       objectReference: {fileID: 0}
+    - target: {fileID: 8996762105941742526, guid: 1d4db54ec1f59e34caf2c0474fcc0a05, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
