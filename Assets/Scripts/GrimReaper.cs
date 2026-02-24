@@ -26,6 +26,7 @@ public class GrimReaper : MonoBehaviour
     public Transform RightHand { get { return handRightPivotTransform; } }
     public Transform LeftHand { get { return handLeftPivotTransform; } }
 
+    public float baseHeight = 1.0f; // 캐릭터의 기본 높이 (로브 포함)
     [Header("Idle Animation Settings")]
     public float idleSpeed = 2.0f;
     public Vector2 idleArmAngleRange = new Vector2(5f, 10f);
@@ -44,7 +45,6 @@ public class GrimReaper : MonoBehaviour
 
     private float animationElapsedTime = 0.0f;
     private float smoothTime = 10f;
-    private Vector3 initialPosition;
 
     // 컨텍스트 메뉴를 통해 에디터에서 Build 함수를 실행할 수 있게 합니다.
     [ContextMenu("Build Character")]
@@ -130,8 +130,6 @@ public class GrimReaper : MonoBehaviour
         Rigidbody rigidbody = gameObject.AddComponent<Rigidbody>();
         rigidbody.useGravity = false; // 중력 비활성화
         rigidbody.constraints = RigidbodyConstraints.FreezeRotation;
-
-        initialPosition = transform.position;
     }
 
     private void BuildScythe(Transform parent)
@@ -202,7 +200,7 @@ public class GrimReaper : MonoBehaviour
     {
         // 로컬 좌표에서 살짝 떠다니는 움직임 추가
         float floatingY = Mathf.Sin(Time.time * idleSpeed * 0.5f) * floatingHeight;
-        transform.localPosition = new Vector3(transform.localPosition.x, floatingY + 1.0f, transform.localPosition.z);
+        transform.localPosition = new Vector3(transform.localPosition.x, floatingY + baseHeight, transform.localPosition.z);
 
         float breathe01 = (Mathf.Sin(Time.time * idleSpeed) + 1f) * 0.5f;
         float armZAngle = Mathf.Lerp(idleArmAngleRange.x, idleArmAngleRange.y, breathe01);
@@ -220,6 +218,11 @@ public class GrimReaper : MonoBehaviour
         Quaternion rightArmTarget = Quaternion.Euler(-currentAngle, 0, 5f);
 
         ApplyRotations(leftArmTarget, rightArmTarget);
+
+        // 걷기 중에도 baseHeight 유지
+        Vector3 currentPos = transform.position;
+        transform.position = new Vector3(currentPos.x, baseHeight, currentPos.z);
+
         animationElapsedTime += Time.deltaTime;
 
         float walkHalfCycleTime = (0 < walkSpeed) ? (Mathf.PI / walkSpeed) : float.PositiveInfinity;
@@ -257,6 +260,10 @@ public class GrimReaper : MonoBehaviour
 
         ApplyRotations(leftArmTarget, rightArmTarget);
 
+        // 공격 중에도 baseHeight 유지
+        Vector3 currentPos = transform.position;
+        transform.position = new Vector3(currentPos.x, baseHeight, currentPos.z);
+
         animationElapsedTime += Time.deltaTime;
         if (animationElapsedTime >= attackDuration)
         {
@@ -269,9 +276,6 @@ public class GrimReaper : MonoBehaviour
         float hitProgress = Mathf.Clamp01(animationElapsedTime / hurtDuration);
         float shockPhase = 0.5f;
         Quaternion leftArmTarget, rightArmTarget;
-
-        // ... (Hurt 애니메이션 로직은 VoxelCharacter와 동일)
-        // ...
 
         if (hitProgress < shockPhase)
         {
@@ -287,6 +291,10 @@ public class GrimReaper : MonoBehaviour
         }
 
         ApplyRotations(leftArmTarget, rightArmTarget);
+
+        // 피격 중에도 baseHeight 유지
+        Vector3 currentPos = transform.position;
+        transform.position = new Vector3(currentPos.x, baseHeight, currentPos.z);
 
         animationElapsedTime += Time.deltaTime;
         if (animationElapsedTime >= hurtDuration)
@@ -311,6 +319,10 @@ public class GrimReaper : MonoBehaviour
         Quaternion rightArmDead = Quaternion.Euler(160f, 0f, 30f);
 
         ApplyRotations(leftArmDead, rightArmDead);
+
+        // 사망 중에도 baseHeight 유지
+        Vector3 currentPos = transform.position;
+        transform.position = new Vector3(currentPos.x, baseHeight, currentPos.z);
 
         animationElapsedTime += Time.deltaTime;
     }

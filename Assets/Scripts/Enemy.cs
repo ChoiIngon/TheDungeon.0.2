@@ -14,6 +14,15 @@ public class Enemy : MonoBehaviour
     // 내부 타이머
     private float pathUpdateTimer;
 
+    [Tooltip("공격 가능 거리")]
+    public float attackDistance = 2.0f;
+    
+    [Tooltip("공격 간격 (초 단위)")]
+    public float attackInterval = 2.0f;
+    
+    private float attackTimer = 0.0f;
+    private bool isAttacking = false;
+
     void Start()
     {
         navMeshAgent = GetComponent<NavMeshAgent>();
@@ -27,21 +36,76 @@ public class Enemy : MonoBehaviour
         var player = GameManager.Instance.player;
         float distanceToPlayer = Vector3.Distance(transform.position, player.transform.position);
 
+        // 공격 타이머 업데이트
+        if (true == isAttacking)
+        {
+            attackTimer += Time.deltaTime;
+        }
+
         if (distanceToPlayer <= DetectionDistance)
         {
             LookAtPlayer();
+
+            if(false == isAttacking)
+            {
+                // 타이머를 매 프레임 증가시킵니다.
+                pathUpdateTimer += Time.deltaTime;
+                // 타이머가 설정된 간격(pathUpdateInterval)을 넘었을 때만 목표 지점을 갱신합니다.
+                if (pathUpdateTimer > pathUpdateInterval)
+                {
+                    // 목표 지점 설정
+                    navMeshAgent.SetDestination(player.transform.position);
+
+                    // 경로가 완전히 계획되었는지 확인
+                    if (navMeshAgent.hasPath && navMeshAgent.pathPending == false)
+                    {
+                        // 경로의 상태 확인
+                        if (navMeshAgent.remainingDistance == Mathf.Infinity)
+                        {
+                            // 도달 불가능한 경로
+                            Debug.Log("Enemy: 플레이어에게 도달할 수 없는 경로입니다. 추격 중지!");
+                            navMeshAgent.velocity = Vector3.zero;
+                            navMeshAgent.ResetPath();
+                        }
+                        else if (navMeshAgent.hasPath)
+                        {
+                            // 도달 가능한 경로
+                            navMeshAgent.velocity = navMeshAgent.desiredVelocity;
+                        }
+                    }
+
+                    // 타이머 초기화
+                    pathUpdateTimer = 0f;
+                }
+            }
         }
 
-        // 타이머를 매 프레임 증가시킵니다.
-        pathUpdateTimer += Time.deltaTime;
-        // 타이머가 설정된 간격(pathUpdateInterval)을 넘었을 때만 목표 지점을 갱신합니다.
-        if (pathUpdateTimer > pathUpdateInterval)
+        // 공격 가능 거리에 플레이어가 들어왔는지 확인
+        if (distanceToPlayer <= attackDistance)
         {
-            // 목표 지점 설정
-            navMeshAgent.SetDestination(player.transform.position);
+            // NavMeshAgent 속도 0으로 설정 (멈춤)
+            navMeshAgent.velocity = Vector3.zero;
+            navMeshAgent.ResetPath();
 
-            // 타이머 초기화
-            pathUpdateTimer = 0f;
+            // 공격 로직
+            if (false == isAttacking)
+            {
+                isAttacking = true;
+                attackTimer = 0.0f;
+                enemyModel.PlayAnimation(GrimReaper.CharacterState.Attack);
+                Debug.Log("Enemy: 공격 시작!");
+            }
+            else if (attackTimer >= attackInterval)
+            {
+                // 공격 간격이 지났으면 다시 공격
+                attackTimer = 0.0f;
+                enemyModel.PlayAnimation(GrimReaper.CharacterState.Attack);
+                Debug.Log("Enemy: 반복 공격!");
+            }
+        }
+        else
+        {
+            isAttacking = false;
         }
     }
 
@@ -73,5 +137,9 @@ public class Enemy : MonoBehaviour
                 Gizmos.DrawLine(navMeshAgent.path.corners[i], navMeshAgent.path.corners[i + 1]);
             }
         }
+
+        // 공격 거리 시각화
+        Gizmos.color = Color.yellow;
+        Gizmos.DrawWireSphere(transform.position, attackDistance);
     }
 }
