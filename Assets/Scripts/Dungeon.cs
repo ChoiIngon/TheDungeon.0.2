@@ -11,6 +11,7 @@ public class Dungeon : MonoBehaviour
     public const float TileOffset = TileSize / 2f;
     public const float WallHeight = 5;
     public const float FloorHeightOffset = -0.25f;
+    public const string DungeonTileLayerName = "DungeonTile";
 
     [Header("Dungeon Object Prefabs")]
     public GameObject doorStandPrefab;
@@ -49,7 +50,7 @@ public class Dungeon : MonoBehaviour
         tiles.transform.SetParent(transform, false);
         tiles.transform.localPosition = Vector3.zero;
         NavMeshSurface navMeshSurface = tiles.AddComponent<NavMeshSurface>();
-        navMeshSurface.layerMask = LayerMask.GetMask("WalkableGround");
+        navMeshSurface.layerMask = LayerMask.GetMask(DungeonTileLayerName);
 
         InitializeRandomSeed();
 
@@ -149,7 +150,7 @@ public class Dungeon : MonoBehaviour
             {
                 GameObject doorObject = Instantiate(doorStandPrefab, position, Quaternion.identity);
                 doorObject.name = $"Door_{tile.index}_{rotationY}";
-                doorObject.layer = LayerMask.NameToLayer("DungeonTile");
+                doorObject.layer = LayerMask.NameToLayer(DungeonTileLayerName);
                 doorObject.transform.SetParent(parent, false);
                 doorObject.transform.Rotate(0.0f, rotationY, 0.0f);
             }
@@ -159,7 +160,7 @@ public class Dungeon : MonoBehaviour
         
         GameObject wallObject = Instantiate(wallPrefab, position, Quaternion.identity);
         wallObject.name = $"Wall_{tile.index}_{rotationY}";
-        wallObject.layer = LayerMask.NameToLayer("DungeonTile");
+        wallObject.layer = LayerMask.NameToLayer(DungeonTileLayerName);
         wallObject.transform.SetParent(parent, false);
         wallObject.transform.Rotate(0.0f, rotationY, 0.0f);
 
@@ -185,7 +186,7 @@ public class Dungeon : MonoBehaviour
                     GameObject floorObject = Instantiate(floorPrefab, position, Quaternion.identity);
                     floorObject.name = $"Floor_{tile.index}";
                     floorObject.transform.SetParent(roomObject.transform, false);
-                    floorObject.layer = LayerMask.NameToLayer("WalkableGround");
+                    floorObject.layer = LayerMask.NameToLayer(DungeonTileLayerName);
                     floorPositions.Add(position);
                 }
 
@@ -302,7 +303,7 @@ public class Dungeon : MonoBehaviour
                 GameObject floorObject = Instantiate(floorPrefab, position, Quaternion.identity);
                 floorObject.name = $"Floor_{tile.index}";
                 floorObject.transform.SetParent(corridorObject.transform, false);
-                floorObject.layer = LayerMask.NameToLayer("WalkableGround");
+                floorObject.layer = LayerMask.NameToLayer(DungeonTileLayerName);
                 floorPositions.Add(position);
 
                 // 천장
@@ -322,7 +323,7 @@ public class Dungeon : MonoBehaviour
                 Vector3 position = new Vector3(tile.rect.x * TileSize, 0.0f, tile.rect.y * TileSize + TileOffset);
                 GameObject wallObject = Instantiate(wallPrefab, position, Quaternion.identity);
                 wallObject.name = $"Wall_Top_{tile.index}";
-                wallObject.layer = LayerMask.NameToLayer("DungeonTile");
+                wallObject.layer = LayerMask.NameToLayer(DungeonTileLayerName);
                 wallObject.transform.SetParent(corridorObject.transform, false);
                 wallObject.transform.Rotate(0.0f, 180.0f, 0.0f);
                 topWalls.Add(wallObject);
@@ -333,7 +334,7 @@ public class Dungeon : MonoBehaviour
                 Vector3 position = new Vector3(tile.rect.x * TileSize, 0.0f, tile.rect.y * TileSize - TileOffset);
                 GameObject wallObject = Instantiate(wallPrefab, position, Quaternion.identity);
                 wallObject.name = $"Wall_Bottom_{tile.index}";
-                wallObject.layer = LayerMask.NameToLayer("DungeonTile");
+                wallObject.layer = LayerMask.NameToLayer(DungeonTileLayerName);
                 wallObject.transform.SetParent(corridorObject.transform, false);
                 wallObject.transform.Rotate(0.0f, 0.0f, 0.0f);
                 bottomWalls.Add(wallObject);
@@ -344,7 +345,7 @@ public class Dungeon : MonoBehaviour
                 Vector3 position = new Vector3(tile.rect.x * TileSize - TileOffset, 0.0f, tile.rect.y * TileSize);
                 GameObject wallObject = Instantiate(wallPrefab, position, Quaternion.identity);
                 wallObject.name = $"Wall_Left_{tile.index}";
-                wallObject.layer = LayerMask.NameToLayer("DungeonTile");
+                wallObject.layer = LayerMask.NameToLayer(DungeonTileLayerName);
                 wallObject.transform.SetParent(corridorObject.transform, false);
                 wallObject.transform.Rotate(0.0f, 90.0f, 0.0f);
                 leftWalls.Add(wallObject);
@@ -355,7 +356,7 @@ public class Dungeon : MonoBehaviour
                 Vector3 position = new Vector3(tile.rect.x * TileSize + TileOffset, 0.0f, tile.rect.y * TileSize);
                 GameObject wallObject = Instantiate(wallPrefab, position, Quaternion.identity);
                 wallObject.name = $"Wall_Right_{tile.index}";
-                wallObject.layer = LayerMask.NameToLayer("DungeonTile");
+                wallObject.layer = LayerMask.NameToLayer(DungeonTileLayerName);
                 wallObject.transform.SetParent(corridorObject.transform, false);
                 wallObject.transform.Rotate(0.0f, 270.0f, 0.0f);
                 rightWalls.Add(wallObject);
@@ -416,14 +417,14 @@ public class Dungeon : MonoBehaviour
         Vector3 position = new Vector3(tile.rect.x * TileSize, FloorHeightOffset, tile.rect.y * TileSize);
         GameObject stair = Instantiate(upStairPrefab, position, Quaternion.identity);
         stair.name = $"EnterStair_{tile.index}";
-        stair.layer = LayerMask.NameToLayer("DungeonTile");
+        stair.layer = LayerMask.NameToLayer(DungeonTileLayerName);
         stair.transform.SetParent(this.tiles.transform, false);
         stair.transform.Rotate(0.0f, Random.Range(0, 4) * 90.0f, 0.0f);
 
         for (int i = 0; i < stair.transform.childCount; i++)
         {
             Transform child = stair.transform.GetChild(i);
-            child.gameObject.layer = LayerMask.NameToLayer("DungeonTile");
+            child.gameObject.layer = LayerMask.NameToLayer(DungeonTileLayerName);
         }
 
         this.Start = stair;
@@ -434,14 +435,14 @@ public class Dungeon : MonoBehaviour
         Vector3 position = new Vector3(tile.rect.x * TileSize, FloorHeightOffset, tile.rect.y * TileSize);
         GameObject stair = Instantiate(downStairPrefab, position, Quaternion.identity);
         stair.name = $"ExitStair_{tile.index}";
-        stair.layer = LayerMask.NameToLayer("DungeonTile");
+        stair.layer = LayerMask.NameToLayer(DungeonTileLayerName);
         stair.transform.SetParent(this.tiles.transform, false);
         stair.transform.Rotate(0.0f, Random.Range(0, 4) * 90.0f, 0.0f);
 
         for (int i = 0; i < stair.transform.childCount; i++)
         {
             Transform child = stair.transform.GetChild(i);
-            child.gameObject.layer = LayerMask.NameToLayer("DungeonTile");
+            child.gameObject.layer = LayerMask.NameToLayer(DungeonTileLayerName);
         }
 
         floorPositions.Add(position); // 내려가는 위치에 바닥 타일이 생성되지 않도록 미리 선점

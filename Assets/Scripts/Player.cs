@@ -310,10 +310,7 @@ public class Player : MonoBehaviour
         Vector3 boxCenter = position + boxCollider.center;
         Vector3 boxHalfExtents = boxCollider.size * 0.5f;
 
-        int layerIndex = LayerMask.NameToLayer("DungeonTile");
-        int layerMask = 1 << layerIndex;
-
-        Collider[] colliders = Physics.OverlapBox(boxCenter, boxHalfExtents, transform.rotation, layerMask);
+        Collider[] colliders = Physics.OverlapBox(boxCenter, boxHalfExtents, transform.rotation, LayerMask.GetMask(Dungeon.DungeonTileLayerName));
 
         foreach (Collider col in colliders)
         {
@@ -325,6 +322,11 @@ public class Player : MonoBehaviour
             if (col.isTrigger)
                 continue;
 
+            if (!col.gameObject.name.Contains("Wall"))
+            {
+                continue;
+            }
+            
             // Wall 이름을 가진 MeshCollider 확인
             if (col is MeshCollider)
             {

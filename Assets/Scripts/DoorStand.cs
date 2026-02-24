@@ -16,7 +16,16 @@ public class DoorStand : MonoBehaviour, IInteractable
     private Quaternion targetRotation;
     private Quaternion startRotation;
 
+    void Start()
+    {
+        Transform[] children = transform.GetComponentsInChildren<Transform>();
+        foreach(Transform child in children)
+        {
+            child.gameObject.layer = LayerMask.NameToLayer(Dungeon.DungeonTileLayerName);
+        }
+    }
     // Update is called once per frame
+
     void Update()
     {
         if (true == isAnimating)

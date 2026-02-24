@@ -115,9 +115,6 @@ public class GrimReaper : MonoBehaviour
         GameObject handRight = Primitive.CreateSphere("HandRight", new Vector3(0, -0.6f, 0), Vector3.one * 0.25f, robeColor, armRightPivotTransform);
         handRightPivotTransform = handRight.transform;
 
-        // 낫 생성 및 오른손에 장착
-        BuildScythe(handRightPivotTransform);
-
         // 다리 제거 -> 떠다니는 효과를 위해
 
         // --- 물리 설정 ---
@@ -130,29 +127,6 @@ public class GrimReaper : MonoBehaviour
         Rigidbody rigidbody = gameObject.AddComponent<Rigidbody>();
         rigidbody.useGravity = false; // 중력 비활성화
         rigidbody.constraints = RigidbodyConstraints.FreezeRotation;
-    }
-
-    private void BuildScythe(Transform parent)
-    {
-        GameObject scythe = new GameObject("Scythe");
-        scythe.transform.SetParent(parent, false);
-        scythe.transform.localPosition = new Vector3(0.55f, 0.4f, 0.77f);
-        scythe.transform.localRotation = Quaternion.Euler(-20.0f, -70.0f, -55.0f);
-        parts.Add(scythe);
-
-        // 낫 자루
-        Primitive.CreateCube("ScytheHandle", new Vector3(0, 0, 0), new Vector3(0.3f, 8f, 0.3f), scytheHandleColor, scythe.transform);
-
-        // 낫 칼날
-        GameObject bladeRoot = new GameObject("BladeRoot");
-        bladeRoot.transform.SetParent(scythe.transform, false);
-        bladeRoot.transform.localPosition = new Vector3(0, 3.6f, 0);
-
-        GameObject bladePart1 = Primitive.CreateCube("BladePart1", new Vector3(1.2f, 0.24f, 0), new Vector3(2.0f, 0.7f, 0.1f), scytheBladeColor, bladeRoot.transform);
-        bladePart1.transform.localRotation = Quaternion.Euler(0, 0, 20);
-
-        GameObject bladePart2 = Primitive.CreateCube("BladePart2", new Vector3(2.65f, 0.22f, 0), new Vector3(2.0f, 0.6f, 0.1f), scytheBladeColor, bladeRoot.transform);
-        bladePart2.transform.localRotation = Quaternion.Euler(0, 0, -25);
     }
 
     /// <summary>

@@ -28,6 +28,10 @@ public class Enemy : MonoBehaviour
         navMeshAgent = GetComponent<NavMeshAgent>();
         enemyModel = GetComponent<GrimReaper>();
         enemyModel.Build();
+
+        GameObject weapon = new GameObject("Scythe");
+        Scythe scythe = weapon.AddComponent<Scythe>();
+        scythe.Build(enemyModel.RightHand);
     }
 
     // Update is called once per frame
