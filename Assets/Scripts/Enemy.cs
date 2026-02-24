@@ -8,6 +8,12 @@ public class Enemy : MonoBehaviour
     private const float DetectionDistance = 10.0f;
     private NavMeshAgent navMeshAgent;
 
+    [Header("AI Settings")]
+    [Tooltip("목표 지점을 얼마나 자주 갱신할지 결정합니다 (초 단위).")]
+    public float pathUpdateInterval = 1.0f;
+    // 내부 타이머
+    private float pathUpdateTimer;
+
     void Start()
     {
         navMeshAgent = GetComponent<NavMeshAgent>();
@@ -24,7 +30,18 @@ public class Enemy : MonoBehaviour
         if (distanceToPlayer <= DetectionDistance)
         {
             LookAtPlayer();
+        }
+
+        // 타이머를 매 프레임 증가시킵니다.
+        pathUpdateTimer += Time.deltaTime;
+        // 타이머가 설정된 간격(pathUpdateInterval)을 넘었을 때만 목표 지점을 갱신합니다.
+        if (pathUpdateTimer > pathUpdateInterval)
+        {
+            // 목표 지점 설정
             navMeshAgent.SetDestination(player.transform.position);
+
+            // 타이머 초기화
+            pathUpdateTimer = 0f;
         }
     }
 
@@ -43,6 +60,18 @@ public class Enemy : MonoBehaviour
 
             // Smooth하게 회전
             transform.rotation = Quaternion.Lerp(transform.rotation, targetRotation, Time.deltaTime * 5f);
+        }
+    }
+
+    void OnDrawGizmos()
+    {
+        if (navMeshAgent != null && navMeshAgent.hasPath)
+        {
+            Gizmos.color = Color.red;
+            for (int i = 0; i < navMeshAgent.path.corners.Length - 1; i++)
+            {
+                Gizmos.DrawLine(navMeshAgent.path.corners[i], navMeshAgent.path.corners[i + 1]);
+            }
         }
     }
 }

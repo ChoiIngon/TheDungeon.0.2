@@ -136,7 +136,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &203844587
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -258,10 +258,6 @@ PrefabInstance:
       propertyPath: m_Name
       value: Ceiling_SquareLarge
       objectReference: {fileID: 0}
-    - target: {fileID: 4580446331104520154, guid: 9f2ed2ef64d0a59419c4791d6ddda859, type: 3}
-      propertyPath: m_IsActive
-      value: 0
-      objectReference: {fileID: 0}
     - target: {fileID: 8492440690643632977, guid: 9f2ed2ef64d0a59419c4791d6ddda859, type: 3}
       propertyPath: m_LocalPosition.x
       value: 0
@@ -318,10 +314,6 @@ PrefabInstance:
     - target: {fileID: 7564636611156017616, guid: e7a79a14190d3d34f93236ba7164d734, type: 3}
       propertyPath: m_Name
       value: Floor_Flat
-      objectReference: {fileID: 0}
-    - target: {fileID: 7564636611156017616, guid: e7a79a14190d3d34f93236ba7164d734, type: 3}
-      propertyPath: m_IsActive
-      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 8378305016021551963, guid: e7a79a14190d3d34f93236ba7164d734, type: 3}
       propertyPath: m_LocalPosition.x
@@ -448,8 +440,8 @@ Camera:
   m_GameObject: {fileID: 961739749}
   m_Enabled: 1
   serializedVersion: 2
-  m_ClearFlags: 1
-  m_BackGroundColor: {r: 0.19215687, g: 0.3019608, b: 0.4745098, a: 0}
+  m_ClearFlags: 2
+  m_BackGroundColor: {r: 0, g: 0, b: 0, a: 0}
   m_projectionMatrixMode: 1
   m_GateFitMode: 2
   m_FOVAxisMode: 0
@@ -578,10 +570,6 @@ PrefabInstance:
       propertyPath: m_Name
       value: DownStair
       objectReference: {fileID: 0}
-    - target: {fileID: 2011357107571826973, guid: 556572e4cfc506047bad4a3599b9686a, type: 3}
-      propertyPath: m_IsActive
-      value: 0
-      objectReference: {fileID: 0}
     - target: {fileID: 4825837372833611520, guid: 556572e4cfc506047bad4a3599b9686a, type: 3}
       propertyPath: m_LocalPosition.x
       value: 0
@@ -638,10 +626,6 @@ PrefabInstance:
     - target: {fileID: 3186273480270015193, guid: 906bbe959a9835541977e6f782de8e83, type: 3}
       propertyPath: m_Name
       value: UpStair
-      objectReference: {fileID: 0}
-    - target: {fileID: 3186273480270015193, guid: 906bbe959a9835541977e6f782de8e83, type: 3}
-      propertyPath: m_IsActive
-      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 4141228168495893480, guid: 906bbe959a9835541977e6f782de8e83, type: 3}
       propertyPath: m_LocalPosition.x

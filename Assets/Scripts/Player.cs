@@ -129,8 +129,9 @@ public class Player : MonoBehaviour
         }
 
         // 스페이스 키: 상호작용
-        if (Input.GetKeyDown(KeyCode.Space))
+        if (Input.GetKeyDown(KeyCode.E))
         {
+            playerModel.PlayAnimation(PlayerModel.ActorState.Attack);
             InteractObject();
             return;
         }
@@ -222,7 +223,7 @@ public class Player : MonoBehaviour
         }
 
         // 캐릭터 앞 2.0f, 위 1.0f 위치에서 projectile 생성
-        Vector3 spawnPosition = transform.position + transform.forward * 2.0f + Vector3.up * 1.0f;
+        Vector3 spawnPosition = transform.position + transform.forward * 1.5f + Vector3.up * 1.0f;
         
         // Projectile 인스턴스 생성
         GameObject projectileObject = Instantiate(projectilePrefab, spawnPosition, Quaternion.identity);

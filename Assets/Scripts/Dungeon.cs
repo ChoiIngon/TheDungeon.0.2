@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Linq;
 using Unity.AI.Navigation;
 using Unity.VisualScripting;
 using UnityEngine;
@@ -135,7 +136,7 @@ public class Dungeon : MonoBehaviour
             };
 
             bool createDoor = true;
-            for(int i=0;i< directions.Length; i++)
+            for (int i = 0; i < directions.Length; i++)
             {
                 TileMap.Tile neighbor = tile.neighbors[directions[i]];
                 if (neighbor.room != null && neighbor.room != room && neighbor.room.index < room.index)
