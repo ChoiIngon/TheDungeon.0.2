@@ -541,7 +541,7 @@ public class Dungeon : MonoBehaviour
             // enemy 생성
             GameObject enemy = Instantiate(enemyPrefab, enemyPosition, Quaternion.identity, transform);
             enemy.name = $"Enemy_{randomX}_{randomY}";
-            enemy.transform.SetParent(this.tiles.transform, false);
+            enemy.transform.SetParent(transform, false);
         }
     }
 }

@@ -209,27 +209,39 @@ public class GrimReaper : MonoBehaviour
     private void AnimateAttack()
     {
         float attackProgress = Mathf.Clamp01(animationElapsedTime / attackDuration);
-        float preparePhase = 0.3f;
-        float strikePhase = 0.7f;
+        
+        // 애니메이션 단계 정의
+        float phase1End = 0.45f;       // 1단계: 팔을 들어올림 (0 ~ 50%)
+        float phase2End = 0.90f;       // 2단계: 팔을 들어올린 상태에서 멈춤 (50% ~ 80%)
+        float phase3End = 0.98f;       // 3단계: 팔을 내려침 (80% ~ 90%)
+        // 4단계: 공격자세 유지 (90% ~ 100%)
+        
         float liftingAngle = 120.0f;
         float swingAngle = -30.0f;
         Quaternion rightArmTarget;
         Quaternion leftArmTarget = Quaternion.identity;
 
-        if (attackProgress < preparePhase)
+        if (attackProgress < phase1End)
         {
-            float t = attackProgress / preparePhase;
+            // 단계 1: 팔을 들어올리기 (0 ~ 50%)
+            float t = attackProgress / phase1End;
             rightArmTarget = Quaternion.Euler(-Mathf.Lerp(0f, liftingAngle, t), 0, 0);
         }
-        else if (attackProgress < strikePhase)
+        else if (attackProgress < phase2End)
         {
-            float t = (attackProgress - preparePhase) / (strikePhase - preparePhase);
+            // 단계 2: 팔을 들어올린 상태에서 멈춤 (50% ~ 80%)
+            rightArmTarget = Quaternion.Euler(-liftingAngle, 0, 0);
+        }
+        else if (attackProgress < phase3End)
+        {
+            // 단계 3: 팔을 내려침 (80% ~ 90%)
+            float t = (attackProgress - phase2End) / (phase3End - phase2End);
             rightArmTarget = Quaternion.Euler(-Mathf.Lerp(liftingAngle, swingAngle, t), 0, 0);
         }
         else
         {
-            float t = (attackProgress - strikePhase) / (1f - strikePhase);
-            rightArmTarget = Quaternion.Euler(-Mathf.Lerp(swingAngle, 0f, t), 0, 0);
+            // 단계 4: 공격자세 유지 (90% ~ 100%)
+            rightArmTarget = Quaternion.Euler(swingAngle, 0, 0);
         }
 
         ApplyRotations(leftArmTarget, rightArmTarget);

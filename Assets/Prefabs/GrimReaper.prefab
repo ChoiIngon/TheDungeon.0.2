@@ -71,7 +71,7 @@ MonoBehaviour:
   floatingHeight: 0.1
   walkSpeed: 10
   walkAngle: 35
-  attackDuration: 0.5
+  attackDuration: 1.5
   hurtDuration: 0.3
   deathDuration: 1.5
 --- !u!195 &-3186081579861683896
