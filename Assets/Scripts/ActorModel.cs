@@ -4,7 +4,6 @@ using UnityEngine;
 
 public class ActorModel : MonoBehaviour
 {
-    protected List<GameObject> parts = new List<GameObject>();
     protected Transform headPivot;
     protected Transform armLeftPivot, armRightPivot;
     protected Transform handLeftPivot, handRightPivot;

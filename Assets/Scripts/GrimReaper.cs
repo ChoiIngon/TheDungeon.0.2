@@ -1,30 +1,14 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
 
-public class GrimReaper : MonoBehaviour
+public class GrimReaper : ActorModel
 {
-    private List<GameObject> parts = new List<GameObject>();
-    private Transform armLeftPivotTransform, armRightPivotTransform, legLeftPivotTransform, legRightPivotTransform, handLeftPivotTransform, handRightPivotTransform, headPivotTransform;
-
-    public enum CharacterState
-    {
-        Idle,
-        Walk,
-        Attack,
-        Hurt,
-        Dead
-    }
-    private CharacterState currentState = CharacterState.Idle;
 
     [Header("Color Settings")]
     public Color robeColor = new Color32(40, 40, 40, 255);
     public Color eyeColor = Color.red;
     public Color scytheHandleColor = new Color32(101, 67, 33, 255);
     public Color scytheBladeColor = new Color32(200, 200, 200, 255);
-
-    public Transform Head { get { return headPivotTransform; } }
-    public Transform RightHand { get { return handRightPivotTransform; } }
-    public Transform LeftHand { get { return handLeftPivotTransform; } }
 
     public float baseHeight = 1.0f; // 캐릭터의 기본 높이 (로브 포함)
     [Header("Idle Animation Settings")]
@@ -43,43 +27,22 @@ public class GrimReaper : MonoBehaviour
     public float hurtDuration = 0.3f;
     public float deathDuration = 1.5f;
 
-    private float animationElapsedTime = 0.0f;
-    private float smoothTime = 10f;
-
     // 컨텍스트 메뉴를 통해 에디터에서 Build 함수를 실행할 수 있게 합니다.
     [ContextMenu("Build Character")]
     public void Build()
     {
-        // 기존 파츠 제거
-        foreach (var part in parts)
-        {
-            if (null != part)
-            {
-                // 에디터 모드와 플레이 모드 모두에서 작동하도록 DestroyImmediate 사용
-                GameObject.DestroyImmediate(part);
-            }
-        }
-        parts.Clear();
-
-        // 기존 컴포넌트 제거 (재생성 위함)
-        foreach (var component in GetComponents<Collider>()) { DestroyImmediate(component); }
-        foreach (var component in GetComponents<Rigidbody>()) { DestroyImmediate(component); }
-
-
         // --- 모델 생성 ---
 
         // 몸체 -> 긴 로브(Robe)로 변경
         GameObject robe = Primitive.CreateCube("Robe", new Vector3(0, 0, 0), new Vector3(0.9f, 1.4f, 0.6f), robeColor, this.transform);
-        parts.Add(robe);
-
+        
         // 머리 -> 후드(Hood)로 변경
-        GameObject headPivot = new GameObject("HeadPivot");
-        headPivot.transform.SetParent(this.transform, false);
-        headPivot.transform.localPosition = new Vector3(0, 0.8f, 0);
-        headPivotTransform = headPivot.transform;
-        parts.Add(headPivot);
-
-        GameObject hood = Primitive.CreateCube("Hood", Vector3.zero, new Vector3(1.2f, 1.1f, 1.0f), robeColor, headPivotTransform);
+        GameObject headPivotObject = new GameObject("HeadPivot");
+        headPivotObject.transform.SetParent(this.transform, false);
+        headPivotObject.transform.localPosition = new Vector3(0, 0.8f, 0);
+        this.headPivot = headPivotObject.transform;
+        
+        GameObject hood = Primitive.CreateCube("Hood", Vector3.zero, new Vector3(1.2f, 1.1f, 1.0f), robeColor, headPivot);
         Primitive.CreateCube("HoodFrontOpening", new Vector3(0, -0.1f, 0.4f), new Vector3(0.8f, 0.7f, 0.35f), Color.black, hood.transform); // 후드 안쪽 어두운 공간
 
         // 왼쪽 눈
@@ -100,25 +63,25 @@ public class GrimReaper : MonoBehaviour
         GameObject armLeftPivot = new GameObject("ArmLeftPivot");
         armLeftPivot.transform.SetParent(this.transform, false);
         armLeftPivot.transform.localPosition = new Vector3(-0.5f, 0.4f, 0);
-        armLeftPivotTransform = armLeftPivot.transform;
-        parts.Add(armLeftPivot);
-        Primitive.CreateCube("ArmLeft", new Vector3(0, -0.3f, 0), new Vector3(0.25f, 0.6f, 0.25f), robeColor, armLeftPivotTransform);
-        GameObject handLeft = Primitive.CreateSphere("HandLeft", new Vector3(0, -0.6f, 0), Vector3.one * 0.25f, robeColor, armLeftPivotTransform);
-        handLeftPivotTransform = handLeft.transform;
+        this.armLeftPivot = armLeftPivot.transform;
+        
+        Primitive.CreateCube("ArmLeft", new Vector3(0, -0.3f, 0), new Vector3(0.25f, 0.6f, 0.25f), robeColor, this.armLeftPivot);
+        GameObject handLeft = Primitive.CreateSphere("HandLeft", new Vector3(0, -0.6f, 0), Vector3.one * 0.25f, robeColor, this.armLeftPivot);
+        this.handLeftPivot = handLeft.transform;
 
         GameObject armRightPivot = new GameObject("ArmRightPivot");
         armRightPivot.transform.SetParent(this.transform, false);
         armRightPivot.transform.localPosition = new Vector3(0.5f, 0.4f, 0);
-        armRightPivotTransform = armRightPivot.transform;
-        parts.Add(armRightPivot);
-        Primitive.CreateCube("ArmRight", new Vector3(0, -0.3f, 0), new Vector3(0.25f, 0.6f, 0.25f), robeColor, armRightPivotTransform);
-        GameObject handRight = Primitive.CreateSphere("HandRight", new Vector3(0, -0.6f, 0), Vector3.one * 0.25f, robeColor, armRightPivotTransform);
-        handRightPivotTransform = handRight.transform;
+        this.armRightPivot = armRightPivot.transform;
+        
+        Primitive.CreateCube("ArmRight", new Vector3(0, -0.3f, 0), new Vector3(0.25f, 0.6f, 0.25f), robeColor, this.armRightPivot);
+        GameObject handRight = Primitive.CreateSphere("HandRight", new Vector3(0, -0.6f, 0), Vector3.one * 0.25f, robeColor, this.armRightPivot);
+        this.handRightPivot = handRight.transform;
 
         // 다리 제거 -> 떠다니는 효과를 위해
 
         // --- 물리 설정 ---
-        Bounds bounds = GetHierarchyBounds(transform);
+        Bounds bounds = GetHierarchyBounds();
         BoxCollider collider = gameObject.AddComponent<BoxCollider>();
         Vector3 localScale = transform.lossyScale;
         collider.size = new Vector3(bounds.size.x / localScale.x, bounds.size.y / localScale.y, bounds.size.z / localScale.z);
@@ -149,28 +112,7 @@ public class GrimReaper : MonoBehaviour
         Debug.Log($"Point Light added to {eyeObject.name}");
     }
 
-    // ... (이하 애니메이션 코드는 VoxelCharacter와 거의 동일, 다리 부분만 제거)
-
-    public void Update()
-    {
-        switch (currentState)
-        {
-            case CharacterState.Idle: AnimateIdle(); break;
-            case CharacterState.Attack: AnimateAttack(); break;
-            case CharacterState.Walk: AnimateWalk(); break;
-            case CharacterState.Hurt: AnimateHurt(); break;
-            case CharacterState.Dead: AnimateDead(); break;
-        }
-    }
-
-    public void PlayAnimation(CharacterState state)
-    {
-        if (currentState == state) return;
-        currentState = state;
-        animationElapsedTime = 0.0f;
-    }
-
-    void AnimateIdle()
+    override protected void AnimateIdle()
     {
         // 로컬 좌표에서 살짝 떠다니는 움직임 추가
         float floatingY = Mathf.Sin(Time.time * idleSpeed * 0.5f) * floatingHeight;
@@ -180,33 +122,33 @@ public class GrimReaper : MonoBehaviour
         float armZAngle = Mathf.Lerp(idleArmAngleRange.x, idleArmAngleRange.y, breathe01);
         Quaternion leftArmTarget = Quaternion.Euler(0, 0, -armZAngle);
         Quaternion rightArmTarget = Quaternion.Euler(0, 0, armZAngle);
+        Quaternion legNeutral = Quaternion.identity;
 
-        ApplyRotations(leftArmTarget, rightArmTarget);
+        ApplyRotations(leftArmTarget, rightArmTarget, legNeutral, legNeutral);
     }
 
-    void AnimateWalk()
+    override protected void AnimateWalk()
     {
         float swing = Mathf.Sin(Time.time * walkSpeed);
         float currentAngle = swing * walkAngle;
         Quaternion leftArmTarget = Quaternion.Euler(currentAngle, 0, -5f);
         Quaternion rightArmTarget = Quaternion.Euler(-currentAngle, 0, 5f);
+        Quaternion legNeutral = Quaternion.identity;
 
-        ApplyRotations(leftArmTarget, rightArmTarget);
+        ApplyRotations(leftArmTarget, rightArmTarget, legNeutral, legNeutral);
 
         // 걷기 중에도 baseHeight 유지
         Vector3 currentPos = transform.position;
         transform.position = new Vector3(currentPos.x, baseHeight, currentPos.z);
 
-        animationElapsedTime += Time.deltaTime;
-
         float walkHalfCycleTime = (0 < walkSpeed) ? (Mathf.PI / walkSpeed) : float.PositiveInfinity;
         if (animationElapsedTime >= walkHalfCycleTime * 2)
         {
-            PlayAnimation(CharacterState.Idle);
+            PlayAnimation(ActorState.Idle);
         }
     }
 
-    private void AnimateAttack()
+    override protected void AnimateAttack()
     {
         float attackProgress = Mathf.Clamp01(animationElapsedTime / attackDuration);
         
@@ -220,6 +162,7 @@ public class GrimReaper : MonoBehaviour
         float swingAngle = -30.0f;
         Quaternion rightArmTarget;
         Quaternion leftArmTarget = Quaternion.identity;
+        Quaternion legNeutral = Quaternion.identity;
 
         if (attackProgress < phase1End)
         {
@@ -244,24 +187,24 @@ public class GrimReaper : MonoBehaviour
             rightArmTarget = Quaternion.Euler(swingAngle, 0, 0);
         }
 
-        ApplyRotations(leftArmTarget, rightArmTarget);
+        ApplyRotations(leftArmTarget, rightArmTarget, legNeutral, legNeutral);
 
         // 공격 중에도 baseHeight 유지
         Vector3 currentPos = transform.position;
         transform.position = new Vector3(currentPos.x, baseHeight, currentPos.z);
 
-        animationElapsedTime += Time.deltaTime;
         if (animationElapsedTime >= attackDuration)
         {
-            PlayAnimation(CharacterState.Idle);
+            PlayAnimation(ActorState.Idle);
         }
     }
 
-    void AnimateHurt()
+    override protected void AnimateHurt()
     {
         float hitProgress = Mathf.Clamp01(animationElapsedTime / hurtDuration);
         float shockPhase = 0.5f;
         Quaternion leftArmTarget, rightArmTarget;
+        Quaternion legNeutral = Quaternion.identity;
 
         if (hitProgress < shockPhase)
         {
@@ -276,67 +219,39 @@ public class GrimReaper : MonoBehaviour
             rightArmTarget = Quaternion.Euler(Mathf.Lerp(-20f, 0f, t), 0, Mathf.Lerp(45f, 0f, t));
         }
 
-        ApplyRotations(leftArmTarget, rightArmTarget);
+        ApplyRotations(leftArmTarget, rightArmTarget, legNeutral, legNeutral);
 
         // 피격 중에도 baseHeight 유지
         Vector3 currentPos = transform.position;
         transform.position = new Vector3(currentPos.x, baseHeight, currentPos.z);
 
-        animationElapsedTime += Time.deltaTime;
         if (animationElapsedTime >= hurtDuration)
         {
-            PlayAnimation(CharacterState.Idle);
+            PlayAnimation(ActorState.Idle);
         }
     }
 
-    void AnimateDead()
+    override protected void AnimateDead()
     {
         float progress = Mathf.Clamp01(animationElapsedTime / deathDuration);
         float fallAngle = Mathf.SmoothStep(0f, -60f, progress);
         float savedYawAngle = this.transform.localEulerAngles.y;
         this.transform.localRotation = Quaternion.Euler(fallAngle, savedYawAngle, 0);
 
-        if (headPivotTransform != null)
+        if (headPivot != null)
         {
-            headPivotTransform.localRotation = Quaternion.Euler(Mathf.Lerp(0f, -40f, progress), 0, 0);
+            headPivot.localRotation = Quaternion.Euler(Mathf.Lerp(0f, -40f, progress), 0, 0);
         }
 
         Quaternion leftArmDead = Quaternion.Euler(160f, 0f, -30f);
         Quaternion rightArmDead = Quaternion.Euler(160f, 0f, 30f);
+        Quaternion legNeutral = Quaternion.identity;
 
-        ApplyRotations(leftArmDead, rightArmDead);
+        ApplyRotations(leftArmDead, rightArmDead, legNeutral, legNeutral);
 
         // 사망 중에도 baseHeight 유지
         Vector3 currentPos = transform.position;
         transform.position = new Vector3(currentPos.x, baseHeight, currentPos.z);
-
-        animationElapsedTime += Time.deltaTime;
-    }
-
-    // 다리 파라미터가 없는 ApplyRotations
-    void ApplyRotations(Quaternion lArm, Quaternion rArm)
-    {
-        float dt = Time.deltaTime * smoothTime;
-        if (armLeftPivotTransform != null)
-            armLeftPivotTransform.localRotation = Quaternion.Slerp(armLeftPivotTransform.localRotation, lArm, dt);
-        if (armRightPivotTransform != null)
-            armRightPivotTransform.localRotation = Quaternion.Slerp(armRightPivotTransform.localRotation, rArm, dt);
-    }
-
-    // VoxelCharacter의 GetHierarchyBounds 헬퍼 함수
-    public Bounds GetHierarchyBounds(Transform root)
-    {
-        Renderer[] renderers = root.GetComponentsInChildren<Renderer>();
-        if (renderers.Length == 0)
-        {
-            return new Bounds(root.position, Vector3.zero);
-        }
-        Bounds totalBounds = renderers[0].bounds;
-        for (int i = 1; i < renderers.Length; i++)
-        {
-            totalBounds.Encapsulate(renderers[i].bounds);
-        }
-        return totalBounds;
     }
 }
 

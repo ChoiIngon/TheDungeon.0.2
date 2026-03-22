@@ -2,6 +2,7 @@
 
 public class PlayerModel : ActorModel
 {
+    [Header("Color Settings")]
     public Color hairColor = new Color32(143, 87, 48, 255);
     public Color skinColor = new Color32(255, 204, 184, 255);
     public Color bodyColor = new Color32(143, 143, 143, 255);

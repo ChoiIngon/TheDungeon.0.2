@@ -96,14 +96,14 @@ public class Enemy : MonoBehaviour
             {
                 isAttacking = true;
                 attackTimer = 0.0f;
-                enemyModel.PlayAnimation(GrimReaper.CharacterState.Attack);
+                enemyModel.PlayAnimation(ActorModel.ActorState.Attack);
                 Debug.Log("Enemy: 공격 시작!");
             }
             else if (attackTimer >= attackInterval)
             {
                 // 공격 간격이 지났으면 다시 공격
                 attackTimer = 0.0f;
-                enemyModel.PlayAnimation(GrimReaper.CharacterState.Attack);
+                enemyModel.PlayAnimation(ActorModel.ActorState.Attack);
                 Debug.Log("Enemy: 반복 공격!");
             }
         }
