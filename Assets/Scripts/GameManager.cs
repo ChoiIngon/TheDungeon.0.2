@@ -106,7 +106,7 @@ public class GameManager : MonoBehaviour
     private Canvas CreateCanvas()
     {
         // 기존 Canvas가 있으면 사용
-        canvas = FindObjectOfType<Canvas>();
+        canvas = FindFirstObjectByType<Canvas>();
         if (canvas != null)
         {
             return canvas;

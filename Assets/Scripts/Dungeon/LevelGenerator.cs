@@ -53,6 +53,11 @@ public class LevelGenerator
     private void InitializeGates()
     {
         List<TileMap.Room> furthestPath = GetFurthestPath();
+        if (furthestPath == null || 0 == furthestPath.Count)
+        {
+            return;
+        }
+
         this.StartRoom = furthestPath[0];
         this.EndRoom = furthestPath[furthestPath.Count - 1];
 
