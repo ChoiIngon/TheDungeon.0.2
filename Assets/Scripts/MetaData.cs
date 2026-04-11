@@ -30,10 +30,15 @@ using System.Text;
 ///
 ///     public DungeonLevelData()
 ///     {
-///         Bind("dungeonId",  (int    v) => DungeonId  = v);
-///         Bind("name",       (string v) => Name       = v);
-///         Bind("difficulty", (float  v) => Difficulty = v);
-///         Bind("rewardId",   RewardIds, int.Parse);
+///         // CallerArgumentExpression 기반 자동 바인딩 (권장)
+///         Bind(DungeonId);
+///         Bind(Name);
+///         Bind(Difficulty);
+///         Bind(RewardIds);
+///
+///         // 명시적 바인딩이 필요한 경우 (TSelf 를 명시)
+///         Bind<DungeonLevelData>("dungeonId",  (self, v) => self.DungeonId  = v);
+///         Bind<DungeonLevelData, int>("rewardId", self => self.RewardIds, int.Parse);
 ///     }
 /// }
 ///
@@ -76,7 +81,7 @@ public abstract class MetaData
         /// <summary>CSV 파일을 읽어 TMeta 목록을 구성합니다.</summary>
         public bool Read(string filePath)
         {
-            if (!File.Exists(filePath))
+            if (false == File.Exists(filePath))
             {
                 return false;
             }
@@ -102,7 +107,7 @@ public abstract class MetaData
                 var row = rows[rowNum];
 
                 // 빈 줄 건너뜀
-                if (row.Count == 0 || (row.Count == 1 && string.IsNullOrWhiteSpace(row[0])))
+                if (row.Count == 0 || (row.Count == 1 && true == string.IsNullOrWhiteSpace(row[0])))
                 {
                     continue;
                 }
@@ -140,7 +145,7 @@ public abstract class MetaData
             while ((line = sr.ReadLine()) != null)
             {
                 // StreamReader가 BOM을 처리하지 못한 경우를 대비한 이중 방어
-                if (isFirstLine)
+                if (true == isFirstLine)
                 {
                     if (line.Length > 0 && line[0] == '\uFEFF')
                     {
@@ -166,12 +171,12 @@ public abstract class MetaData
 
                 if (c == '"')
                 {
-                    if (!inQuotes && current.Length == 0)
+                    if (false == inQuotes && current.Length == 0)
                     {
                         // 필드 맨 앞 따옴표 → quoted field 시작
                         inQuotes = true;
                     }
-                    else if (inQuotes)
+                    else if (true == inQuotes)
                     {
                         if (i + 1 < line.Length && line[i + 1] == '"')
                         {
@@ -191,7 +196,7 @@ public abstract class MetaData
                         current.Append(c);
                     }
                 }
-                else if (c == ',' && !inQuotes)
+                else if (c == ',' && false == inQuotes)
                 {
                     cells.Add(current.ToString());
                     current.Clear();
@@ -232,7 +237,7 @@ public abstract class MetaData
                 throw new FormatException($"컬럼명 오류: '{cellValue}', 대괄호 짝이 맞지 않습니다.");
             }
 
-            if (hasBraceStart)
+            if (true == hasBraceStart)
             {
                 root.Index = int.Parse(column.Substring(braceStart + 1, braceEnd - braceStart - 1));
             }
@@ -260,14 +265,17 @@ public abstract class MetaData
     /// <summary>파싱된 Cell 목록을 바탕으로 멤버를 초기화합니다.</summary>
     private void Init(IList<Cell> row)
     {
+        if (false == _typeBindings.TryGetValue(GetType(), out var bindings))
+        {
+            return;
+        }
         foreach (var cell in row)
         {
             string key = cell.Header?.Name ?? string.Empty;
-            if (string.IsNullOrEmpty(key))                           { continue; }
-            if (string.IsNullOrEmpty(cell.Value))                    { continue; }
-            if (!_bindFunctions.TryGetValue(key, out var func))      { continue; }
-
-            func(cell);
+            if (true == string.IsNullOrEmpty(key))                 { continue; }
+            if (true == string.IsNullOrEmpty(cell.Value))          { continue; }
+            if (false == bindings.TryGetValue(key, out var func))  { continue; }
+            func(this, cell);
         }
     }
 
@@ -275,57 +283,113 @@ public abstract class MetaData
     //  Bind 함수 등록부
     // =========================================================
 
-    private readonly Dictionary<string, Action<Cell>> _bindFunctions =
-        new Dictionary<string, Action<Cell>>();
+    /// <summary>
+    /// 타입별 바인딩 딕셔너리.
+    /// 같은 타입의 모든 인스턴스가 공유하며, 최초 인스턴스 생성 시 1회만 등록됩니다.
+    /// </summary>
+    private static readonly Dictionary<Type, Dictionary<string, Action<MetaData, Cell>>> _typeBindings = new();
+
+    private static Dictionary<string, Action<MetaData, Cell>> GetOrCreateBindings(Type type)
+    {
+        if (false == _typeBindings.TryGetValue(type, out var dict))
+        {
+            _typeBindings[type] = dict = new();
+        }
+        return dict;
+    }
 
     // ---------------------------------------------------------
     //  스칼라 타입
+    //  사용 예: Bind<MyData>("fieldName", (self, v) => self.Field = v);
     // ---------------------------------------------------------
 
-    protected void Bind(string name, Action<bool> setter)
+    protected static void Bind<TSelf>(string name, Action<TSelf, bool> setter) where TSelf : MetaData
     {
-        _bindFunctions[name] = cell =>
+        var b = GetOrCreateBindings(typeof(TSelf));
+        if (true == b.ContainsKey(name))
         {
-            string lower = cell.Value.ToLowerInvariant();
-            setter(lower != "false" && lower != "0");
-        };
+            return;
+        }
+        b[name] = (inst, cell) => { string l = cell.Value.ToLowerInvariant(); setter((TSelf)inst, l != "false" && l != "0"); };
     }
 
-    protected void Bind(string name, Action<short>  setter)
-        => _bindFunctions[name] = cell => setter(short.Parse(cell.Value));
+    protected static void Bind<TSelf>(string name, Action<TSelf, short> setter) where TSelf : MetaData
+    {
+        var b = GetOrCreateBindings(typeof(TSelf));
+        if (true == b.ContainsKey(name)) { return; }
+        b[name] = (inst, cell) => setter((TSelf)inst, short.Parse(cell.Value));
+    }
 
-    protected void Bind(string name, Action<ushort> setter)
-        => _bindFunctions[name] = cell => setter(ushort.Parse(cell.Value));
+    protected static void Bind<TSelf>(string name, Action<TSelf, ushort> setter) where TSelf : MetaData
+    {
+        var b = GetOrCreateBindings(typeof(TSelf));
+        if (true == b.ContainsKey(name)) { return; }
+        b[name] = (inst, cell) => setter((TSelf)inst, ushort.Parse(cell.Value));
+    }
 
-    protected void Bind(string name, Action<int>    setter)
-        => _bindFunctions[name] = cell => setter(int.Parse(cell.Value));
+    protected static void Bind<TSelf>(string name, Action<TSelf, int> setter) where TSelf : MetaData
+    {
+        var b = GetOrCreateBindings(typeof(TSelf));
+        if (true == b.ContainsKey(name)) { return; }
+        b[name] = (inst, cell) => setter((TSelf)inst, int.Parse(cell.Value));
+    }
 
-    protected void Bind(string name, Action<uint>   setter)
-        => _bindFunctions[name] = cell => setter(uint.Parse(cell.Value));
+    protected static void Bind<TSelf>(string name, Action<TSelf, uint> setter) where TSelf : MetaData
+    {
+        var b = GetOrCreateBindings(typeof(TSelf));
+        if (true == b.ContainsKey(name)) { return; }
+        b[name] = (inst, cell) => setter((TSelf)inst, uint.Parse(cell.Value));
+    }
 
-    protected void Bind(string name, Action<long>   setter)
-        => _bindFunctions[name] = cell => setter(long.Parse(cell.Value));
+    protected static void Bind<TSelf>(string name, Action<TSelf, long> setter) where TSelf : MetaData
+    {
+        var b = GetOrCreateBindings(typeof(TSelf));
+        if (true == b.ContainsKey(name)) { return; }
+        b[name] = (inst, cell) => setter((TSelf)inst, long.Parse(cell.Value));
+    }
 
-    protected void Bind(string name, Action<ulong>  setter)
-        => _bindFunctions[name] = cell => setter(ulong.Parse(cell.Value));
+    protected static void Bind<TSelf>(string name, Action<TSelf, ulong> setter) where TSelf : MetaData
+    {
+        var b = GetOrCreateBindings(typeof(TSelf));
+        if (true == b.ContainsKey(name)) { return; }
+        b[name] = (inst, cell) => setter((TSelf)inst, ulong.Parse(cell.Value));
+    }
 
-    protected void Bind(string name, Action<float>  setter)
-        => _bindFunctions[name] = cell => setter(float.Parse(cell.Value));
+    protected static void Bind<TSelf>(string name, Action<TSelf, float> setter) where TSelf : MetaData
+    {
+        var b = GetOrCreateBindings(typeof(TSelf));
+        if (true == b.ContainsKey(name)) { return; }
+        b[name] = (inst, cell) => setter((TSelf)inst, float.Parse(cell.Value));
+    }
 
-    protected void Bind(string name, Action<double> setter)
-        => _bindFunctions[name] = cell => setter(double.Parse(cell.Value));
+    protected static void Bind<TSelf>(string name, Action<TSelf, double> setter) where TSelf : MetaData
+    {
+        var b = GetOrCreateBindings(typeof(TSelf));
+        if (true == b.ContainsKey(name)) { return; }
+        b[name] = (inst, cell) => setter((TSelf)inst, double.Parse(cell.Value));
+    }
 
-    protected void Bind(string name, Action<string> setter)
-        => _bindFunctions[name] = cell => setter(cell.Value);
+    protected static void Bind<TSelf>(string name, Action<TSelf, string> setter) where TSelf : MetaData
+    {
+        var b = GetOrCreateBindings(typeof(TSelf));
+        if (true == b.ContainsKey(name)) { return; }
+        b[name] = (inst, cell) => setter((TSelf)inst, cell.Value);
+    }
 
     // ---------------------------------------------------------
     //  배열 타입  (헤더에 [n] 인덱스가 있어야 함)
-    //  사용 예: Bind("rewardId", RewardIds, int.Parse);
+    //  사용 예: Bind<MyData, int>("rewardId", self => self.RewardIds, int.Parse);
     // ---------------------------------------------------------
 
-    protected void Bind<T>(string name, List<T> list, Func<string, T> parser)
+    protected static void Bind<TSelf, T>(string name, Func<TSelf, List<T>> listGetter, Func<string, T> parser)
+        where TSelf : MetaData
     {
-        _bindFunctions[name] = cell =>
+        var b = GetOrCreateBindings(typeof(TSelf));
+        if (true == b.ContainsKey(name))
+        {
+            return;
+        }
+        b[name] = (inst, cell) =>
         {
             int idx = cell.Header.Index;
             if (idx < 0)
@@ -333,38 +397,41 @@ public abstract class MetaData
                 throw new InvalidOperationException(
                     $"컬럼 '{name}' 은 배열 컬럼이 아닙니다. 헤더에 [n] 인덱스가 필요합니다.");
             }
-
+            var list = listGetter((TSelf)inst);
             while (list.Count <= idx)
             {
                 list.Add(default);
             }
-
             list[idx] = parser(cell.Value);
         };
     }
 
     // ---------------------------------------------------------
     //  MetaData 서브클래스 배열 타입  (헤더에 [n].field 형식)
-    //  사용 예: Bind("RewardDatas", RewardDatas);
+    //  사용 예: Bind<MyData, RewardData>("RewardDatas", self => self.RewardDatas);
     //  CSV 헤더 형식: RewardDatas[0].ItemId, RewardDatas[0].Count, ...
     // ---------------------------------------------------------
 
-    protected void Bind<T>(string name, List<T> list) where T : MetaData, new()
+    protected static void Bind<TSelf, T>(string name, Func<TSelf, List<T>> listGetter)
+        where TSelf : MetaData where T : MetaData, new()
     {
-        _bindFunctions[name] = cell =>
+        var b = GetOrCreateBindings(typeof(TSelf));
+        if (true == b.ContainsKey(name))
+        {
+            return;
+        }
+        b[name] = (inst, cell) =>
         {
             int idx = cell.Header.Index;
             if (idx < 0)
             {
-                throw new InvalidOperationException(
-                    $"컬럼 '{name}' 은 배열 컬럼이 아닙니다. 헤더에 [n] 인덱스가 필요합니다.");
+                throw new InvalidOperationException($"컬럼 '{name}' 은 배열 컬럼이 아닙니다. 헤더에 [n] 인덱스가 필요합니다.");
             }
-
+            var list = listGetter((TSelf)inst);
             while (list.Count <= idx)
             {
                 list.Add(new T());
             }
-
             if (cell.Header.Child != null)
             {
                 list[idx].Init(new List<Cell> { new Cell { Header = cell.Header.Child, Value = cell.Value } });
@@ -374,34 +441,41 @@ public abstract class MetaData
 
     // ---------------------------------------------------------
     //  하위 MetaData (점 표기 계층 구조)
-    //  사용 예: Bind("spawn", SpawnInfo);
+    //  사용 예: Bind<MyData>("spawn", self => self.SpawnInfo);
     // ---------------------------------------------------------
 
-    protected void Bind(string name, MetaData subMeta)
+    protected static void Bind<TSelf>(string name, Func<TSelf, MetaData> subMetaGetter) where TSelf : MetaData
     {
-        _bindFunctions[name] = cell =>
+        var b = GetOrCreateBindings(typeof(TSelf));
+        if (true == b.ContainsKey(name))
+        {
+            return;
+        }
+        b[name] = (inst, cell) =>
         {
             if (cell.Header?.Child == null)
             {
                 return;
             }
-
-            var childCell = new Cell
-            {
-                Header = cell.Header.Child,
-                Value  = cell.Value
-            };
-            subMeta.Init(new List<Cell> { childCell });
+            var childCell = new Cell { Header = cell.Header.Child, Value = cell.Value };
+            subMetaGetter((TSelf)inst).Init(new List<Cell> { childCell });
         };
     }
 
     // ---------------------------------------------------------
     //  커스텀 함수 바인딩
-    //  사용 예: BindFunc("flags", raw => ParseFlags(raw));
+    //  사용 예: BindFunc<MyData>("flags", (self, raw) => self.ParseFlags(raw));
     // ---------------------------------------------------------
 
-    protected void BindFunc(string name, Action<string> customFunction)
-        => _bindFunctions[name] = cell => customFunction(cell.Value);
+    protected static void BindFunc<TSelf>(string name, Action<TSelf, string> customFunction) where TSelf : MetaData
+    {
+        var b = GetOrCreateBindings(typeof(TSelf));
+        if (true == b.ContainsKey(name))
+        {
+            return;
+        }
+        b[name] = (inst, cell) => customFunction((TSelf)inst, cell.Value);
+    }
 
     // ---------------------------------------------------------
     //  CallerArgumentExpression 기반 자동 바인딩  (C# 10+)
@@ -409,82 +483,131 @@ public abstract class MetaData
     //  · 인수 표현식 텍스트("DungeonId")를 컬럼명으로 자동 사용
     //  · 프로퍼티 타입에 맞는 파서 자동 선택
     //  · List<T> 프로퍼티는 요소 타입의 기본 파서를 자동 적용
+    //  · 같은 타입의 두 번째 이후 인스턴스는 등록을 건너뜁니다.
     // ---------------------------------------------------------
 
     protected void Bind<T>(T value, [CallerArgumentExpression("value")] string memberName = null)
     {
-        if (string.IsNullOrEmpty(memberName)) return;
+        _ = value; // T 타입 추론에만 사용. CallerArgumentExpression 에 의해 memberName 으로 변환됨.
+        if (true == string.IsNullOrEmpty(memberName))
+        {
+            return;
+        }
+
+        Type selfType = GetType();
+        var bindings = GetOrCreateBindings(selfType);
+        if (true == bindings.ContainsKey(memberName))
+        {
+            return; // 이미 등록됨 → skip
+        }
 
         Type type = typeof(T);
 
         // ── List<TElem> ──────────────────────────────────────────
-        if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(List<>))
+        if (true == type.IsGenericType && type.GetGenericTypeDefinition() == typeof(List<>))
         {
             Type elemType = type.GetGenericArguments()[0];
 
-            if (typeof(MetaData).IsAssignableFrom(elemType))
-            {
-                // MetaData 서브클래스 리스트 → Bind<TElem>(string, List<TElem>) 호출
-                MethodInfo bindMetaList = typeof(MetaData)
-                    .GetMethods(BindingFlags.NonPublic | BindingFlags.Instance)
-                    .First(m =>
-                    {
-                        if (m.Name != "Bind" || !m.IsGenericMethodDefinition) return false;
-                        var ps = m.GetParameters();
-                        return ps.Length == 2
-                            && ps[1].ParameterType.IsGenericType
-                            && ps[1].ParameterType.GetGenericTypeDefinition() == typeof(List<>);
-                    })
-                    .MakeGenericMethod(elemType);
+            FieldInfo    listField = selfType.GetField(memberName, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+            PropertyInfo listProp  = listField == null ? selfType.GetProperty(memberName, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance) : null;
 
-                bindMetaList.Invoke(this, new object[] { memberName, value });
+            if (true == typeof(MetaData).IsAssignableFrom(elemType))
+            {
+                typeof(MetaData)
+                    .GetMethod(nameof(RegisterMetaDataListBinding), BindingFlags.NonPublic | BindingFlags.Static)
+                    .MakeGenericMethod(elemType)
+                    .Invoke(null, new object[] { bindings, memberName, listField, listProp });
             }
             else
             {
-                // Primitive 리스트 → Bind<TElem>(string, List<TElem>, Func<string,TElem>) 호출
-                MethodInfo bindList = typeof(MetaData)
-                    .GetMethods(BindingFlags.NonPublic | BindingFlags.Instance)
-                    .First(m =>
-                    {
-                        if (m.Name != "Bind" || !m.IsGenericMethodDefinition) return false;
-                        var ps = m.GetParameters();
-                        return ps.Length == 3
-                            && ps[1].ParameterType.IsGenericType
-                            && ps[1].ParameterType.GetGenericTypeDefinition() == typeof(List<>);
-                    })
-                    .MakeGenericMethod(elemType);
-
-                bindList.Invoke(this, new object[] { memberName, value, GetDefaultParser(elemType) });
+                typeof(MetaData)
+                    .GetMethod(nameof(RegisterPrimitiveListBinding), BindingFlags.NonPublic | BindingFlags.Static)
+                    .MakeGenericMethod(elemType)
+                    .Invoke(null, new object[] { bindings, memberName, listField, listProp, GetDefaultParser(elemType) });
             }
             return;
         }
 
         // ── Scalar ───────────────────────────────────────────────
-        PropertyInfo prop = GetType().GetProperty(memberName,
-            BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
-        FieldInfo field = prop == null
-            ? GetType().GetField(memberName, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)
-            : null;
+        PropertyInfo prop = selfType.GetProperty(memberName, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+        FieldInfo field = prop == null ? selfType.GetField(memberName, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance) : null;
 
-        void SetValue(object v)
+        // prop/field 만 capture. this 는 capture 하지 않음.
+        void SetOnInstance(MetaData inst, object v)
         {
-            prop?.GetSetMethod(nonPublic: true)?.Invoke(this, new object[] { v });
-            field?.SetValue(this, v);
+            prop?.GetSetMethod(nonPublic: true)?.Invoke(inst, new object[] { v });
+            field?.SetValue(inst, v);
         }
 
-        if      (type == typeof(bool))   Bind(memberName, (bool   v) => SetValue(v));
-        else if (type == typeof(short))  Bind(memberName, (short  v) => SetValue(v));
-        else if (type == typeof(ushort)) Bind(memberName, (ushort v) => SetValue(v));
-        else if (type == typeof(int))    Bind(memberName, (int    v) => SetValue(v));
-        else if (type == typeof(uint))   Bind(memberName, (uint   v) => SetValue(v));
-        else if (type == typeof(long))   Bind(memberName, (long   v) => SetValue(v));
-        else if (type == typeof(ulong))  Bind(memberName, (ulong  v) => SetValue(v));
-        else if (type == typeof(float))  Bind(memberName, (float  v) => SetValue(v));
-        else if (type == typeof(double)) Bind(memberName, (double v) => SetValue(v));
-        else if (type == typeof(string)) Bind(memberName, (string v) => SetValue(v));
-        else if (type.IsEnum)            Bind(memberName, v => SetValue(ParseEnum(type, v)));
-        else throw new NotSupportedException($"지원하지 않는 타입: {type.Name}");
+        if      (type == typeof(bool))   { bindings[memberName] = (inst, cell) => { string l = cell.Value.ToLowerInvariant(); SetOnInstance(inst, l != "false" && l != "0"); }; }
+        else if (type == typeof(short))  { bindings[memberName] = (inst, cell) => SetOnInstance(inst, short.Parse(cell.Value)); }
+        else if (type == typeof(ushort)) { bindings[memberName] = (inst, cell) => SetOnInstance(inst, ushort.Parse(cell.Value)); }
+        else if (type == typeof(int))    { bindings[memberName] = (inst, cell) => SetOnInstance(inst, int.Parse(cell.Value)); }
+        else if (type == typeof(uint))   { bindings[memberName] = (inst, cell) => SetOnInstance(inst, uint.Parse(cell.Value)); }
+        else if (type == typeof(long))   { bindings[memberName] = (inst, cell) => SetOnInstance(inst, long.Parse(cell.Value)); }
+        else if (type == typeof(ulong))  { bindings[memberName] = (inst, cell) => SetOnInstance(inst, ulong.Parse(cell.Value)); }
+        else if (type == typeof(float))  { bindings[memberName] = (inst, cell) => SetOnInstance(inst, float.Parse(cell.Value)); }
+        else if (type == typeof(double)) { bindings[memberName] = (inst, cell) => SetOnInstance(inst, double.Parse(cell.Value)); }
+        else if (type == typeof(string)) { bindings[memberName] = (inst, cell) => SetOnInstance(inst, cell.Value); }
+        else if (true == type.IsEnum)    { bindings[memberName] = (inst, cell) => SetOnInstance(inst, ParseEnum(type, cell.Value)); }
+        else                             { throw new NotSupportedException($"지원하지 않는 타입: {type.Name}"); }
     }
+
+    // ---------------------------------------------------------
+    //  List 바인딩 등록 헬퍼 (reflection 으로 제네릭 타입 확정 후 1회 호출)
+    // ---------------------------------------------------------
+
+    private static void RegisterPrimitiveListBinding<TElem>(
+        Dictionary<string, Action<MetaData, Cell>> bindings,
+        string memberName,
+        FieldInfo    listField,
+        PropertyInfo listProp,
+        Func<string, TElem> parser)
+    {
+        bindings[memberName] = (instance, cell) =>
+        {
+            int idx = cell.Header.Index;
+            if (idx < 0)
+            {
+                throw new InvalidOperationException(
+                    $"컬럼 '{memberName}' 은 배열 컬럼이 아닙니다. 헤더에 [n] 인덱스가 필요합니다.");
+            }
+            var list = (List<TElem>)(listField?.GetValue(instance) ?? listProp.GetValue(instance));
+            while (list.Count <= idx)
+            {
+                list.Add(default);
+            }
+            list[idx] = parser(cell.Value);
+        };
+    }
+
+    private static void RegisterMetaDataListBinding<TElem>(
+        Dictionary<string, Action<MetaData, Cell>> bindings,
+        string memberName,
+        FieldInfo    listField,
+        PropertyInfo listProp) where TElem : MetaData, new()
+    {
+        bindings[memberName] = (instance, cell) =>
+        {
+            int idx = cell.Header.Index;
+            if (idx < 0)
+            {
+                throw new InvalidOperationException(
+                    $"컬럼 '{memberName}' 은 배열 컬럼이 아닙니다. 헤더에 [n] 인덱스가 필요합니다.");
+            }
+            var list = (List<TElem>)(listField?.GetValue(instance) ?? listProp.GetValue(instance));
+            while (list.Count <= idx)
+            {
+                list.Add(new TElem());
+            }
+            if (cell.Header.Child != null)
+            {
+                list[idx].Init(new List<Cell> { new Cell { Header = cell.Header.Child, Value = cell.Value } });
+            }
+        };
+    }
+
+    // ---------------------------------------------------------
 
     /// <summary>
     /// 문자열을 enum 값으로 변환합니다.
@@ -497,8 +620,10 @@ public abstract class MetaData
         catch { /* ignored */ }
 
         // 정수 형식
-        if (int.TryParse(value, out int intVal))
+        if (true == int.TryParse(value, out int intVal))
+        {
             return Enum.ToObject(enumType, intVal);
+        }
 
         throw new FormatException($"'{value}'을 {enumType.Name} 열거형으로 변환할 수 없습니다.");
     }
@@ -506,16 +631,18 @@ public abstract class MetaData
     private static object GetDefaultParser(Type elemType)
     {
         if (elemType == typeof(bool))
+        {
             return (Func<string, bool>)(s => { var l = s.ToLowerInvariant(); return l != "false" && l != "0"; });
-        if (elemType == typeof(short))  return (Func<string, short>) short.Parse;
-        if (elemType == typeof(ushort)) return (Func<string, ushort>)ushort.Parse;
-        if (elemType == typeof(int))    return (Func<string, int>)   int.Parse;
-        if (elemType == typeof(uint))   return (Func<string, uint>)  uint.Parse;
-        if (elemType == typeof(long))   return (Func<string, long>)  long.Parse;
-        if (elemType == typeof(ulong))  return (Func<string, ulong>) ulong.Parse;
-        if (elemType == typeof(float))  return (Func<string, float>) float.Parse;
-        if (elemType == typeof(double)) return (Func<string, double>)double.Parse;
-        if (elemType == typeof(string)) return (Func<string, string>)(s => s);
+        }
+        if (elemType == typeof(short))  { return (Func<string, short>) short.Parse; }
+        if (elemType == typeof(ushort)) { return (Func<string, ushort>)ushort.Parse; }
+        if (elemType == typeof(int))    { return (Func<string, int>)   int.Parse; }
+        if (elemType == typeof(uint))   { return (Func<string, uint>)  uint.Parse; }
+        if (elemType == typeof(long))   { return (Func<string, long>)  long.Parse; }
+        if (elemType == typeof(ulong))  { return (Func<string, ulong>) ulong.Parse; }
+        if (elemType == typeof(float))  { return (Func<string, float>) float.Parse; }
+        if (elemType == typeof(double)) { return (Func<string, double>)double.Parse; }
+        if (elemType == typeof(string)) { return (Func<string, string>)(s => s); }
         throw new NotSupportedException($"List<{elemType.Name}>의 기본 파서가 없습니다.");
     }
 }

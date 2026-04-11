@@ -60,6 +60,8 @@ public class DungeonLevelMetaData : MetaData
             Bind(ItemId);
             Bind(Count);
         }
+
+        public override string ToString() => $"RewardMetaData(ItemId={ItemId}, Count={Count})";
     }
     /// <summary>클리어 보상 아이템 ID 목록 (rewardId[0], rewardId[1], ...)</summary>
     public List<RewardMetaData> RewardDatas { get; private set; } = new List<RewardMetaData>();
@@ -89,4 +91,6 @@ public class DungeonLevelMetaData : MetaData
         Bind(ClearExp);
         Bind(ClearGold);
     }
+
+    public override string ToString() => $"DungeonLevelMetaData(DungeonId={DungeonId}, Name={Name}, Description={Description}, RequiredLevel={RequiredLevel}, RecommendPower={RecommendPower}, Difficulty={Difficulty}, IsBossStage={IsBossStage}, TimeLimit={TimeLimit}, MaxPlayers={MaxPlayers}, MapId={MapId}, BgmId={BgmId}, MonsterGroupId={MonsterGroupId}, RewardDatas=[{string.Join(", ", RewardDatas)}], ClearExp={ClearExp}, ClearGold={ClearGold})";
 }
