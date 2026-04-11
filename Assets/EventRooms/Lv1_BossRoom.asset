@@ -1,0 +1,43 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d936388de3d8c194ea67b6abe0de2eaa, type: 3}
+  m_Name: Lv1_BossRoom
+  m_EditorClassIdentifier: Assembly-CSharp::EventRoomAsset
+  width: 5
+  height: 5
+  wallPrefab: {fileID: 1159351990771520630, guid: 91ad7bf144749b04ab484a680630a040, type: 3}
+  floorPrefab: {fileID: 7564636611156017616, guid: e7a79a14190d3d34f93236ba7164d734, type: 3}
+  doors:
+  - side: 2
+    offset: 1
+    prefab: {fileID: 0}
+  - side: 1
+    offset: 3
+    prefab: {fileID: 7415011182353848556, guid: 610ef74a2783f8044ad6bad50171c2d2, type: 3}
+  prefabPlacements:
+  - id: Table
+    prefab: {fileID: 6967361487159559488, guid: c533c10f37d12c941bf5dfea26e26cac, type: 3}
+    localOffset: {x: 16, y: 0, z: 6}
+    localEulerAngles: {x: 0, y: 70, z: 0}
+  - id: Pot
+    prefab: {fileID: 556515823571614727, guid: 2908a19ef1a7b3a49bfc9a55bf645e69, type: 3}
+    localOffset: {x: 3.7700005, y: 0, z: 7.29}
+    localEulerAngles: {x: 0, y: 70, z: 0}
+  - id: Pot
+    prefab: {fileID: 510141063021254879, guid: 7a937ee5bc40ba142a195e3a41fa7258, type: 3}
+    localOffset: {x: 22, y: 3, z: 11}
+    localEulerAngles: {x: 0, y: 270, z: 0}
+  - id: 
+    prefab: {fileID: 0}
+    localOffset: {x: 0, y: 0, z: 0}
+    localEulerAngles: {x: 0, y: 0, z: 0}
+  monsterSpawnPoints: []

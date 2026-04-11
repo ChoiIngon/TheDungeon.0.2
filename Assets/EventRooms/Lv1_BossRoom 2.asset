@@ -10,7 +10,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: d936388de3d8c194ea67b6abe0de2eaa, type: 3}
-  m_Name: BossRoom001 1
+  m_Name: Lv1_BossRoom 2
   m_EditorClassIdentifier: Assembly-CSharp::EventRoomAsset
   width: 5
   height: 5
@@ -23,15 +23,34 @@ MonoBehaviour:
   - side: 1
     offset: 3
     prefab: {fileID: 7415011182353848556, guid: 610ef74a2783f8044ad6bad50171c2d2, type: 3}
+  - side: 3
+    offset: 2
+    prefab: {fileID: 7415011182353848556, guid: 610ef74a2783f8044ad6bad50171c2d2, type: 3}
+  - side: 3
+    offset: 2
+    prefab: {fileID: 7415011182353848556, guid: 610ef74a2783f8044ad6bad50171c2d2, type: 3}
   prefabPlacements:
   - id: Table
     prefab: {fileID: 6967361487159559488, guid: c533c10f37d12c941bf5dfea26e26cac, type: 3}
-    tilePosition: {x: 2, y: 0}
-    localOffset: {x: 0, y: 0, z: 0}
+    localOffset: {x: 16, y: 0, z: 6}
     localEulerAngles: {x: 0, y: 70, z: 0}
   - id: Pot
     prefab: {fileID: 556515823571614727, guid: 2908a19ef1a7b3a49bfc9a55bf645e69, type: 3}
-    tilePosition: {x: 1, y: 0}
     localOffset: {x: 3.7700005, y: 0, z: 7.29}
     localEulerAngles: {x: 0, y: 70, z: 0}
-  monsterSpawnPoints: []
+  - id: Pot
+    prefab: {fileID: 510141063021254879, guid: 7a937ee5bc40ba142a195e3a41fa7258, type: 3}
+    localOffset: {x: 22, y: 3, z: 11}
+    localEulerAngles: {x: 0, y: 270, z: 0}
+  - id: 
+    prefab: {fileID: 0}
+    localOffset: {x: 0, y: 0, z: 0}
+    localEulerAngles: {x: 0, y: 0, z: 0}
+  - id: 
+    prefab: {fileID: 3146705093901032357, guid: e0b2491dfd0bb9d4c9007eb87e252f4b, type: 3}
+    localOffset: {x: 10, y: 0, z: 10}
+    localEulerAngles: {x: 2, y: 2, z: 2}
+  monsterSpawnPoints:
+  - id: 
+    localOffset: {x: 6.75, y: 0, z: 6.75}
+    localEulerAngles: {x: 0, y: 0, z: 0}

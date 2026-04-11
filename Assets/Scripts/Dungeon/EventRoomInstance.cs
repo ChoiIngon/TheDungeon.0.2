@@ -60,7 +60,6 @@ public class EventRoomInstance : MonoBehaviour
             {
                 id = source.id,
                 prefab = source.prefab,
-                tilePosition = source.tilePosition,
                 localOffset = source.localOffset,
                 localEulerAngles = source.localEulerAngles
             });
@@ -77,7 +76,6 @@ public class EventRoomInstance : MonoBehaviour
             monsterSpawnPoints.Add(new EventRoomAsset.MonsterSpawnPoint
             {
                 id = source.id,
-                tilePosition = source.tilePosition,
                 localOffset = source.localOffset,
                 localEulerAngles = source.localEulerAngles
             });
@@ -124,7 +122,6 @@ public class EventRoomInstance : MonoBehaviour
             {
                 id = source.id,
                 prefab = source.prefab,
-                tilePosition = source.tilePosition,
                 localOffset = source.localOffset,
                 localEulerAngles = source.localEulerAngles
             });
@@ -141,7 +138,6 @@ public class EventRoomInstance : MonoBehaviour
             asset.monsterSpawnPoints.Add(new EventRoomAsset.MonsterSpawnPoint
             {
                 id = source.id,
-                tilePosition = source.tilePosition,
                 localOffset = source.localOffset,
                 localEulerAngles = source.localEulerAngles
             });

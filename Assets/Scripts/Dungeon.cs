@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using Unity.AI.Navigation;
 using Unity.VisualScripting;
@@ -43,6 +44,17 @@ public class Dungeon : MonoBehaviour
 
     public void Generate()
     {
+#if UNITY_ANDROID || UNITY_WEBGL
+        string csvPath = Application.streamingAssetsPath + "/MetaData/DungeonLevel.csv";
+#else
+        string csvPath = Path.Combine(Application.streamingAssetsPath, "MetaData", "DungeonLevel.csv");
+#endif
+        var reader = new MetaData.Reader<DungeonLevelMetaData>();
+        reader.Read(csvPath);
+        foreach (var data in reader.All) 
+        {
+            Debug.Log($"{data.ToString()}");
+        }
         Clear();
 
         tiles = new GameObject();

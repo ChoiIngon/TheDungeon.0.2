@@ -25,7 +25,6 @@ public class EventRoomAsset : ScriptableObject
     {
         public string id;
         public GameObject prefab;
-        public Vector2Int tilePosition = new Vector2Int(1, 1);
         public Vector3 localOffset = Vector3.zero;
         public Vector3 localEulerAngles = Vector3.zero;
     }
@@ -34,7 +33,6 @@ public class EventRoomAsset : ScriptableObject
     public class MonsterSpawnPoint
     {
         public string id;
-        public Vector2Int tilePosition = new Vector2Int(1, 1);
         public Vector3 localOffset = Vector3.zero;
         public Vector3 localEulerAngles = Vector3.zero;
     }

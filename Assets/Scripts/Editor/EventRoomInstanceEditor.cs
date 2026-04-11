@@ -230,24 +230,24 @@ public class EventRoomInstanceEditor : Editor
 
         using (new EditorGUILayout.HorizontalScope())
         {
-            if (GUILayout.Button("Add Prefab At Selected Tile"))
+            if (GUILayout.Button("Add Prefab (Init From Selected Tile)"))
             {
                 Undo.RecordObject(instance, "Add Prefab Placement");
                 instance.prefabPlacements.Add(new EventRoomAsset.PrefabPlacement
                 {
-                    tilePosition = new Vector2Int(selectedX, selectedY)
+                    localOffset = new Vector3((selectedX + 0.5f) * previewTileSize, 0.0f, (selectedY + 0.5f) * previewTileSize)
                 });
                 EditorUtility.SetDirty(instance);
                 previewSignature = int.MinValue;
                 SceneView.RepaintAll();
             }
 
-            if (GUILayout.Button("Add Spawn Point At Selected Tile"))
+            if (GUILayout.Button("Add Spawn Point (Init From Selected Tile)"))
             {
                 Undo.RecordObject(instance, "Add Spawn Point");
                 instance.monsterSpawnPoints.Add(new EventRoomAsset.MonsterSpawnPoint
                 {
-                    tilePosition = new Vector2Int(selectedX, selectedY)
+                    localOffset = new Vector3((selectedX + 0.5f) * previewTileSize, 0.0f, (selectedY + 0.5f) * previewTileSize)
                 });
                 EditorUtility.SetDirty(instance);
                 previewSignature = int.MinValue;
@@ -401,7 +401,6 @@ public class EventRoomInstanceEditor : Editor
 
                 int prefabId = placement.prefab == null ? 0 : placement.prefab.GetInstanceID();
                 hash = (hash * 23) + prefabId;
-                hash = (hash * 23) + placement.tilePosition.GetHashCode();
                 hash = (hash * 23) + placement.localOffset.GetHashCode();
                 hash = (hash * 23) + placement.localEulerAngles.GetHashCode();
             }
@@ -483,10 +482,7 @@ public class EventRoomInstanceEditor : Editor
             }
 
             previewObject.transform.SetParent(previewRoot.transform, true);
-            previewObject.transform.position = LocalTileCenter(
-                pivot,
-                Mathf.Clamp(placement.tilePosition.x, 0, width - 1),
-                Mathf.Clamp(placement.tilePosition.y, 0, height - 1)) + placement.localOffset;
+            previewObject.transform.position = pivot + placement.localOffset;
             previewObject.transform.rotation = Quaternion.Euler(placement.localEulerAngles);
 
             EventRoomPreviewBinding binding = previewObject.GetComponent<EventRoomPreviewBinding>();
@@ -511,11 +507,7 @@ public class EventRoomInstanceEditor : Editor
                 continue;
             }
 
-            Vector3 position = LocalTileCenter(
-                pivot,
-                Mathf.Clamp(spawnPoint.tilePosition.x, 0, width - 1),
-                Mathf.Clamp(spawnPoint.tilePosition.y, 0, height - 1));
-            position += spawnPoint.localOffset;
+            Vector3 position = pivot + spawnPoint.localOffset;
 
             GameObject spawnNode = new GameObject(string.IsNullOrEmpty(spawnPoint.id) ? "SpawnPoint_" + i.ToString() : spawnPoint.id);
             spawnNode.transform.SetParent(previewRoot.transform, true);
@@ -754,10 +746,7 @@ public class EventRoomInstanceEditor : Editor
                     continue;
                 }
 
-                Vector3 basePosition = LocalTileCenter(
-                    pivot,
-                    Mathf.Clamp(placement.tilePosition.x, 0, width - 1),
-                    Mathf.Clamp(placement.tilePosition.y, 0, height - 1));
+                Vector3 basePosition = pivot;
                 Vector3 nextOffset = binding.transform.position - basePosition;
                 Vector3 nextEuler = binding.transform.eulerAngles;
 
@@ -786,10 +775,7 @@ public class EventRoomInstanceEditor : Editor
                     continue;
                 }
 
-                Vector3 basePosition = LocalTileCenter(
-                    pivot,
-                    Mathf.Clamp(spawnPoint.tilePosition.x, 0, width - 1),
-                    Mathf.Clamp(spawnPoint.tilePosition.y, 0, height - 1));
+                Vector3 basePosition = pivot;
                 Vector3 nextOffset = binding.transform.position - basePosition;
                 Vector3 nextEuler = binding.transform.eulerAngles;
 
@@ -954,11 +940,7 @@ public class EventRoomInstanceEditor : Editor
                 continue;
             }
 
-            Vector3 position = LocalTileCenter(
-                pivot,
-                Mathf.Clamp(placement.tilePosition.x, 0, width - 1),
-                Mathf.Clamp(placement.tilePosition.y, 0, height - 1));
-            position += placement.localOffset;
+            Vector3 position = pivot + placement.localOffset;
             position.y += PreviewMarkerHeight;
 
             Handles.DrawWireDisc(position, Vector3.up, previewTileSize * 0.2f);
@@ -976,11 +958,7 @@ public class EventRoomInstanceEditor : Editor
                 continue;
             }
 
-            Vector3 position = LocalTileCenter(
-                pivot,
-                Mathf.Clamp(spawnPoint.tilePosition.x, 0, width - 1),
-                Mathf.Clamp(spawnPoint.tilePosition.y, 0, height - 1));
-            position += spawnPoint.localOffset;
+            Vector3 position = pivot + spawnPoint.localOffset;
             position.y += PreviewMarkerHeight;
 
             Handles.ConeHandleCap(0, position, Quaternion.Euler(90.0f, 0.0f, 0.0f), previewTileSize * 0.26f, EventType.Repaint);
