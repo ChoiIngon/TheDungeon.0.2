@@ -1,14 +1,23 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
 
+/// <summary>
+/// 타일 격자 위의 A* 경로 탐색. 이동은 4방향만 허용한다.
+/// </summary>
 public class AStarPathFinder
 {
-    private static Vector2Int[] LOOKUP_OFFSETS = {
+    private static readonly Vector2Int[] LOOKUP_OFFSETS = {
             new Vector2Int(-1, 0),  // left
             new Vector2Int( 0,-1),  // down
             new Vector2Int( 1, 0),  // right
             new Vector2Int( 0, 1)   // up
         };
+
+    /// <summary>
+    /// 휴리스틱 배율. 한 칸 이동의 최소 비용과 같아야 A* 가 최적 경로를 보장한다(admissible).
+    /// 이 값을 MinCost 보다 크게 올리면 탐색은 빨라지지만 경로가 최적이 아닐 수 있다.
+    /// </summary>
+    private const int HeuristicScale = TileMap.Tile.PathCost.MinCost;
 
     public class Node
     {
@@ -29,34 +38,41 @@ public class AStarPathFinder
         }
     }
 
-    private TileMap tileMap;
-    private Rect boundary;
-    private BinaryHeap openNodesHeap;
-    private Dictionary<int, Node> openNodeDict;
-    private Dictionary<int, Node> closeNodeDict;
+    private readonly TileMap tileMap;
+    private readonly Rect boundary;
+    private readonly DungeonRandom random;
+    private readonly BinaryHeap openNodesHeap;
+    private readonly Dictionary<int, Node> openNodeDict;
+    private readonly Dictionary<int, Node> closeNodeDict;
 
-    public List<TileMap.Tile> path = new List<TileMap.Tile>();
-
-    public AStarPathFinder(TileMap tileMap, Rect pathFindBoundary)
+    public AStarPathFinder(TileMap tileMap, Rect pathFindBoundary, DungeonRandom random = null)
     {
         this.tileMap = tileMap;
         this.boundary = pathFindBoundary;
+        this.random = random;
         this.openNodesHeap = new BinaryHeap();
         this.openNodeDict = new Dictionary<int, Node>();
         this.closeNodeDict = new Dictionary<int, Node>();
     }
 
+    /// <summary>
+    /// from 에서 to 까지의 최소 비용 경로. 경로가 없으면 빈 리스트를 돌려준다(절대 null 이 아니다).
+    /// 반환값은 호출할 때마다 새로 만든 리스트이므로 호출자가 보관해도 안전하다.
+    /// </summary>
     public List<TileMap.Tile> FindPath(TileMap.Tile from, TileMap.Tile to)
     {
         openNodesHeap.Clear();
         openNodeDict.Clear();
         closeNodeDict.Clear();
-        path.Clear();
+
+        if (null == from || null == to)
+        {
+            return new List<TileMap.Tile>();
+        }
 
         Node currentNode = new Node(from);
-        currentNode.expectCost = (int)Mathf.Abs(to.rect.x - from.rect.x) + 
-                                 (int)Mathf.Abs(to.rect.y - from.rect.y);
-        
+        currentNode.expectCost = Heuristic(from, to);
+
         openNodesHeap.Add(currentNode);
         openNodeDict.Add(currentNode.index, currentNode);
 
@@ -68,12 +84,12 @@ public class AStarPathFinder
 
             if (to == currentNode.tile)
             {
-                // Reconstruct path efficiently
-                ReconstructPath(currentNode);
-                return path;
+                return ReconstructPath(currentNode);
             }
 
-            int offsetIndex = UnityEngine.Random.Range(0, LOOKUP_OFFSETS.Length);
+            // 같은 비용의 경로가 여럿일 때 항상 같은 방향을 먼저 보면 복도가 한쪽으로 쏠린다.
+            // 탐색 시작 방향을 섞어 모양에 변화를 준다.
+            int offsetIndex = (null != random) ? random.Range(0, LOOKUP_OFFSETS.Length) : 0;
             for (int i = 0; i < LOOKUP_OFFSETS.Length; i++)
             {
                 var offset = LOOKUP_OFFSETS[offsetIndex];
@@ -117,8 +133,7 @@ public class AStarPathFinder
                     Node child = new Node(tile);
                     child.parent = currentNode;
                     child.pathCost = newPathCost;
-                    child.expectCost = (int)Mathf.Abs(to.rect.x - tile.rect.x) + 
-                                       (int)Mathf.Abs(to.rect.y - tile.rect.y);
+                    child.expectCost = Heuristic(tile, to);
 
                     openNodesHeap.Add(child);
                     openNodeDict.Add(child.index, child);
@@ -126,19 +141,30 @@ public class AStarPathFinder
             }
         }
 
-        return path; // Empty path if no route found
+        return new List<TileMap.Tile>(); // 도달 불가
     }
 
-    private void ReconstructPath(Node endNode)
+    /// <summary>4방향 이동이므로 맨해튼 거리가 최적 휴리스틱이다.</summary>
+    private static int Heuristic(TileMap.Tile from, TileMap.Tile to)
     {
-        path.Clear();
+        int dx = (int)Mathf.Abs(to.rect.x - from.rect.x);
+        int dy = (int)Mathf.Abs(to.rect.y - from.rect.y);
+        return (dx + dy) * HeuristicScale;
+    }
+
+    private static List<TileMap.Tile> ReconstructPath(Node endNode)
+    {
+        List<TileMap.Tile> path = new List<TileMap.Tile>();
+
         Node current = endNode;
         while (current != null)
         {
             path.Add(current.tile);
             current = current.parent;
         }
+
         path.Reverse();
+        return path;
     }
 
     private TileMap.Tile GetTile(int x, int y)
@@ -251,7 +277,7 @@ public class AStarPathFinder
                 if (leftChildIndex < heapCount && CompareNodes(heap[leftChildIndex], node) < 0)
                     smallestIndex = leftChildIndex;
 
-                if (rightChildIndex < heapCount && 
+                if (rightChildIndex < heapCount &&
                     CompareNodes(heap[rightChildIndex], heap[smallestIndex]) < 0)
                     smallestIndex = rightChildIndex;
 
@@ -273,7 +299,7 @@ public class AStarPathFinder
             int costComparison = a.cost.CompareTo(b.cost);
             if (costComparison != 0)
                 return costComparison;
-            
+
             return a.expectCost.CompareTo(b.expectCost);
         }
     }

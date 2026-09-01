@@ -1,8 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using Unity.AI.Navigation;
-using Unity.VisualScripting;
 using UnityEngine;
 using static TileMap;
 
@@ -14,16 +12,22 @@ public class Dungeon : MonoBehaviour
     public const float FloorHeightOffset = -0.25f;
     public const string DungeonTileLayerName = "DungeonTile";
 
+    /// <summary>
+    /// 생성 재시도 횟수.
+    /// 방 배치 운에 따라 복도를 못 파는 경우가 있고, 그 결과는 클리어 불가능한 던전이다.
+    /// TileMap.TryBuild() 가 그런 결과를 걸러내므로 시드를 바꿔 다시 시도한다.
+    /// </summary>
+    private const int MaxGenerationAttempts = 16;
+
     [Header("Dungeon Object Prefabs")]
     public GameObject doorStandPrefab;
     public GameObject wallPrefab;
     public GameObject floorPrefab;
-    public GameObject columnPrefab;
     public GameObject torchPrefab;
     public GameObject upStairPrefab;
     public GameObject downStairPrefab;
     public GameObject ceilPrefab;
-    
+
     [Header("Dungeon Generation Settings")]
     public int randomSeed = 0;
     public int roomCount = 10;
@@ -36,11 +40,15 @@ public class Dungeon : MonoBehaviour
 
     TileMap tileMap = null;
     LevelGenerator levelGenerator = null;
+    DungeonRandom random = null;
 
     public GameObject Start { get; private set; } = null;
     public TileMap.Tile End { get; private set; } = null;
 
     private GameObject tiles;
+
+    /// <summary>LayerMask.NameToLayer() 는 문자열 조회다. 타일마다 부르지 않도록 한 번만 캐시한다.</summary>
+    private int dungeonTileLayer = -1;
 
     public void Generate()
     {
@@ -57,6 +65,14 @@ public class Dungeon : MonoBehaviour
         }
         Clear();
 
+        this.dungeonTileLayer = LayerMask.NameToLayer(DungeonTileLayerName);
+
+        if (false == GenerateLayout())
+        {
+            Debug.LogError($"Dungeon: {MaxGenerationAttempts}회 시도했지만 유효한 던전을 만들지 못했다. 생성 설정을 확인하라.");
+            return;
+        }
+
         tiles = new GameObject();
         tiles.name = "Tiles";
         tiles.transform.SetParent(transform, false);
@@ -64,23 +80,54 @@ public class Dungeon : MonoBehaviour
         NavMeshSurface navMeshSurface = tiles.AddComponent<NavMeshSurface>();
         navMeshSurface.layerMask = LayerMask.GetMask(DungeonTileLayerName);
 
-        InitializeRandomSeed();
-
         Build();
 
         InitializePlayerPosition();
         InitializeEnemy();
     }
 
+    /// <summary>
+    /// 유효한 타일 맵과 레벨 배치를 얻을 때까지 시드를 바꿔 가며 시도한다.
+    /// 실패한 시도의 결과물은 버려지므로, 이 단계에서는 GameObject 를 만들지 않는다.
+    /// </summary>
+    private bool GenerateLayout()
+    {
+        int baseSeed = (0 != randomSeed) ? randomSeed : (int)System.DateTime.Now.Ticks;
+
+        for (int attempt = 0; attempt < MaxGenerationAttempts; attempt++)
+        {
+            int seed = baseSeed + attempt;
+            var attemptRandom = new DungeonRandom(seed);
+            var config = new TileMap.Config(roomCount, minRoomSize, maxRoomSize);
+
+            if (false == TileMap.TryBuild(config, attemptRandom, out TileMap builtMap, out string failureReason))
+            {
+                Debug.Log($"Dungeon: seed {seed} 생성 실패 - {failureReason}");
+                continue;
+            }
+
+            var builtLevel = new LevelGenerator(builtMap, attemptRandom);
+            if (false == builtLevel.IsValid)
+            {
+                Debug.Log($"Dungeon: seed {seed} 레벨 배치 실패 - 시작/출구 지점을 잡지 못했다.");
+                continue;
+            }
+
+            this.random = attemptRandom;
+            this.tileMap = builtMap;
+            this.levelGenerator = builtLevel;
+            this.End = builtLevel.End;
+
+            Debug.Log($"Dungeon: Applied Random Seed {seed} (attempt {attempt + 1}/{MaxGenerationAttempts})");
+            return true;
+        }
+
+        return false;
+    }
+
     private void Build()
     {
-        tileMap = new TileMap(roomCount, minRoomSize, maxRoomSize);
-        levelGenerator = new LevelGenerator(tileMap);
-
-        this.End = levelGenerator.End;
-
         HashSet<Vector3> floorPositions = new HashSet<Vector3>();
-        HashSet<Vector3> wallPositions = new HashSet<Vector3>();
 
         CreateEnterStairObject(levelGenerator.Start);
         CreateExitStairObject(levelGenerator.End, floorPositions);
@@ -99,17 +146,21 @@ public class Dungeon : MonoBehaviour
         navMeshSurface.BuildNavMesh();
     }
 
+    /// <summary>
+    /// 벽 목록에서 무작위로 골라 횃불을 단다.
+    /// 횃불이 붙은 벽과 그 양옆은 후보에서 빼서 한 곳에 몰리지 않게 한다.
+    /// </summary>
     private void CreateTorchObject(List<GameObject> walls)
     {
-        if(0 == walls.Count)
+        if (0 == walls.Count)
         {
             return;
         }
 
         int torchCount = walls.Count / 3 + 1;
-        for (int i = 0; i < torchCount; i++)
+        for (int i = 0; i < torchCount && 0 < walls.Count; i++)
         {
-            int index = Random.Range(0, walls.Count);
+            int index = random.Range(0, walls.Count);
             GameObject wallObject = walls[index];
 
             GameObject torchObject = Instantiate(torchPrefab, wallObject.transform);
@@ -117,12 +168,12 @@ public class Dungeon : MonoBehaviour
             torchObject.transform.localPosition = new Vector3(0f, 3.0f, 0.0f);
             torchObject.transform.localRotation = Quaternion.identity;
 
-            for(int removeIndex = index - 1; removeIndex < index + 1; removeIndex++) 
+            // 뒤에서 앞으로 지운다. 앞에서부터 지우면 인덱스가 밀려서 엉뚱한 원소가 빠지고,
+            // 정작 횃불을 단 벽은 후보에 남아 같은 자리에 두 번 붙을 수 있다.
+            int last = Mathf.Min(index + 1, walls.Count - 1);
+            int first = Mathf.Max(index - 1, 0);
+            for (int removeIndex = last; removeIndex >= first; removeIndex--)
             {
-                if(removeIndex < 0 || walls.Count <= removeIndex)
-                {
-                    continue;
-                }
                 walls.RemoveAt(removeIndex);
             }
         }
@@ -140,7 +191,7 @@ public class Dungeon : MonoBehaviour
 
         if (true == room.doors.Contains(tile))
         {
-            int [] directions = new int[]
+            TileMap.Tile.Direction[] directions = new TileMap.Tile.Direction[]
             {
                 TileMap.Tile.Direction.Top,
                 TileMap.Tile.Direction.Right,
@@ -148,11 +199,19 @@ public class Dungeon : MonoBehaviour
                 TileMap.Tile.Direction.Left
             };
 
+            // 두 방이 벽을 맞대고 있으면 같은 자리에 문이 두 번 생긴다.
+            // index 가 작은 방이 문을 만들기로 정해 중복을 막는다.
             bool createDoor = true;
             for (int i = 0; i < directions.Length; i++)
             {
-                TileMap.Tile neighbor = tile.neighbors[directions[i]];
-                if (neighbor.room != null && neighbor.room != room && neighbor.room.index < room.index)
+                // 맵 밖 타일은 null 이다(TileMap 이 None 타일을 배열에서 제거한다).
+                TileMap.Tile neighbor = tile.GetNeighbor(directions[i]);
+                if (null == neighbor || null == neighbor.room)
+                {
+                    continue;
+                }
+
+                if (neighbor.room != room && neighbor.room.index < room.index)
                 {
                     createDoor = false;
                 }
@@ -162,17 +221,17 @@ public class Dungeon : MonoBehaviour
             {
                 GameObject doorObject = Instantiate(doorStandPrefab, position, Quaternion.identity);
                 doorObject.name = $"Door_{tile.index}_{rotationY}";
-                doorObject.layer = LayerMask.NameToLayer(DungeonTileLayerName);
+                doorObject.layer = dungeonTileLayer;
                 doorObject.transform.SetParent(parent, false);
                 doorObject.transform.Rotate(0.0f, rotationY, 0.0f);
             }
 
             return null;
         }
-        
+
         GameObject wallObject = Instantiate(wallPrefab, position, Quaternion.identity);
         wallObject.name = $"Wall_{tile.index}_{rotationY}";
-        wallObject.layer = LayerMask.NameToLayer(DungeonTileLayerName);
+        wallObject.layer = dungeonTileLayer;
         wallObject.transform.SetParent(parent, false);
         wallObject.transform.Rotate(0.0f, rotationY, 0.0f);
 
@@ -198,7 +257,7 @@ public class Dungeon : MonoBehaviour
                     GameObject floorObject = Instantiate(floorPrefab, position, Quaternion.identity);
                     floorObject.name = $"Floor_{tile.index}";
                     floorObject.transform.SetParent(roomObject.transform, false);
-                    floorObject.layer = LayerMask.NameToLayer(DungeonTileLayerName);
+                    floorObject.layer = dungeonTileLayer;
                     floorPositions.Add(position);
                 }
 
@@ -315,7 +374,7 @@ public class Dungeon : MonoBehaviour
                 GameObject floorObject = Instantiate(floorPrefab, position, Quaternion.identity);
                 floorObject.name = $"Floor_{tile.index}";
                 floorObject.transform.SetParent(corridorObject.transform, false);
-                floorObject.layer = LayerMask.NameToLayer(DungeonTileLayerName);
+                floorObject.layer = dungeonTileLayer;
                 floorPositions.Add(position);
 
                 // 천장
@@ -325,17 +384,17 @@ public class Dungeon : MonoBehaviour
                 ceilObject.transform.Rotate(180.0f, 0.0f, 0.0f);
             }
 
-            bool hasTopWall = tile.neighbors[(int)TileMap.Tile.Direction.Top]?.type == TileMap.Tile.Type.Wall;
-            bool hasRightWall = tile.neighbors[(int)TileMap.Tile.Direction.Right]?.type == TileMap.Tile.Type.Wall;
-            bool hasBottomWall = tile.neighbors[(int)TileMap.Tile.Direction.Bottom]?.type == TileMap.Tile.Type.Wall;
-            bool hasLeftWall = tile.neighbors[(int)TileMap.Tile.Direction.Left]?.type == TileMap.Tile.Type.Wall;
+            bool hasTopWall = tile.GetNeighbor(TileMap.Tile.Direction.Top)?.type == TileMap.Tile.Type.Wall;
+            bool hasRightWall = tile.GetNeighbor(TileMap.Tile.Direction.Right)?.type == TileMap.Tile.Type.Wall;
+            bool hasBottomWall = tile.GetNeighbor(TileMap.Tile.Direction.Bottom)?.type == TileMap.Tile.Type.Wall;
+            bool hasLeftWall = tile.GetNeighbor(TileMap.Tile.Direction.Left)?.type == TileMap.Tile.Type.Wall;
 
             if (true == hasTopWall)
             {
                 Vector3 position = new Vector3(tile.rect.x * TileSize, 0.0f, tile.rect.y * TileSize + TileOffset);
                 GameObject wallObject = Instantiate(wallPrefab, position, Quaternion.identity);
                 wallObject.name = $"Wall_Top_{tile.index}";
-                wallObject.layer = LayerMask.NameToLayer(DungeonTileLayerName);
+                wallObject.layer = dungeonTileLayer;
                 wallObject.transform.SetParent(corridorObject.transform, false);
                 wallObject.transform.Rotate(0.0f, 180.0f, 0.0f);
                 topWalls.Add(wallObject);
@@ -346,7 +405,7 @@ public class Dungeon : MonoBehaviour
                 Vector3 position = new Vector3(tile.rect.x * TileSize, 0.0f, tile.rect.y * TileSize - TileOffset);
                 GameObject wallObject = Instantiate(wallPrefab, position, Quaternion.identity);
                 wallObject.name = $"Wall_Bottom_{tile.index}";
-                wallObject.layer = LayerMask.NameToLayer(DungeonTileLayerName);
+                wallObject.layer = dungeonTileLayer;
                 wallObject.transform.SetParent(corridorObject.transform, false);
                 wallObject.transform.Rotate(0.0f, 0.0f, 0.0f);
                 bottomWalls.Add(wallObject);
@@ -357,7 +416,7 @@ public class Dungeon : MonoBehaviour
                 Vector3 position = new Vector3(tile.rect.x * TileSize - TileOffset, 0.0f, tile.rect.y * TileSize);
                 GameObject wallObject = Instantiate(wallPrefab, position, Quaternion.identity);
                 wallObject.name = $"Wall_Left_{tile.index}";
-                wallObject.layer = LayerMask.NameToLayer(DungeonTileLayerName);
+                wallObject.layer = dungeonTileLayer;
                 wallObject.transform.SetParent(corridorObject.transform, false);
                 wallObject.transform.Rotate(0.0f, 90.0f, 0.0f);
                 leftWalls.Add(wallObject);
@@ -368,7 +427,7 @@ public class Dungeon : MonoBehaviour
                 Vector3 position = new Vector3(tile.rect.x * TileSize + TileOffset, 0.0f, tile.rect.y * TileSize);
                 GameObject wallObject = Instantiate(wallPrefab, position, Quaternion.identity);
                 wallObject.name = $"Wall_Right_{tile.index}";
-                wallObject.layer = LayerMask.NameToLayer(DungeonTileLayerName);
+                wallObject.layer = dungeonTileLayer;
                 wallObject.transform.SetParent(corridorObject.transform, false);
                 wallObject.transform.Rotate(0.0f, 270.0f, 0.0f);
                 rightWalls.Add(wallObject);
@@ -381,13 +440,6 @@ public class Dungeon : MonoBehaviour
         CreateTorchObject(leftWalls);
     }
 
-    private void CreateColumnObject(Vector3 position, Transform parent)
-    {
-        GameObject column = Instantiate(columnPrefab, position, Quaternion.identity);
-        column.name = $"Column_{position}";
-        column.transform.SetParent(parent, false);
-    }
-
     public void Clear()
     {
         if (null == this.tiles)
@@ -396,47 +448,47 @@ public class Dungeon : MonoBehaviour
         }
 
         // Tiles의 모든 자식 오브젝트 제거
-        int childCount = this.tiles.transform.childCount;
         while (0 < this.tiles.transform.childCount)
         {
             Transform child = this.tiles.transform.GetChild(0);
             child.SetParent(null);
-            GameObject.Destroy(child.gameObject);
+            DestroyObject(child.gameObject);
         }
 
-        GameObject.Destroy(this.tiles);
+        DestroyObject(this.tiles);
         this.tiles = null;
     }
 
-    private void InitializeRandomSeed()
+    /// <summary>
+    /// Destroy() 는 다음 프레임에 처리되므로 에디터 모드(재생 중이 아닐 때)에서는 아무 일도 일어나지 않는다.
+    /// 에디터에서 던전을 다시 만들 때도 이전 오브젝트가 확실히 지워지도록 분기한다.
+    /// </summary>
+    private static void DestroyObject(GameObject target)
     {
-        if (0 == randomSeed)
+        if (true == Application.isPlaying)
         {
-            int appliedRandomSeed = (int)System.DateTime.Now.Ticks;
-            Random.InitState(appliedRandomSeed);
-
-            Debug.Log($"Applied Random Seed: {appliedRandomSeed}");
+            Destroy(target);
             return;
         }
 
-        Random.InitState(randomSeed);
+        DestroyImmediate(target);
     }
 
     private void CreateEnterStairObject(TileMap.Tile tile)
     {
         Debug.Assert(null != tile);
-        
+
         Vector3 position = new Vector3(tile.rect.x * TileSize, FloorHeightOffset, tile.rect.y * TileSize);
         GameObject stair = Instantiate(upStairPrefab, position, Quaternion.identity);
         stair.name = $"EnterStair_{tile.index}";
-        stair.layer = LayerMask.NameToLayer(DungeonTileLayerName);
+        stair.layer = dungeonTileLayer;
         stair.transform.SetParent(this.tiles.transform, false);
-        stair.transform.Rotate(0.0f, Random.Range(0, 4) * 90.0f, 0.0f);
+        stair.transform.Rotate(0.0f, random.Range(0, 4) * 90.0f, 0.0f);
 
         for (int i = 0; i < stair.transform.childCount; i++)
         {
             Transform child = stair.transform.GetChild(i);
-            child.gameObject.layer = LayerMask.NameToLayer(DungeonTileLayerName);
+            child.gameObject.layer = dungeonTileLayer;
         }
 
         this.Start = stair;
@@ -447,14 +499,14 @@ public class Dungeon : MonoBehaviour
         Vector3 position = new Vector3(tile.rect.x * TileSize, FloorHeightOffset, tile.rect.y * TileSize);
         GameObject stair = Instantiate(downStairPrefab, position, Quaternion.identity);
         stair.name = $"ExitStair_{tile.index}";
-        stair.layer = LayerMask.NameToLayer(DungeonTileLayerName);
+        stair.layer = dungeonTileLayer;
         stair.transform.SetParent(this.tiles.transform, false);
-        stair.transform.Rotate(0.0f, Random.Range(0, 4) * 90.0f, 0.0f);
+        stair.transform.Rotate(0.0f, random.Range(0, 4) * 90.0f, 0.0f);
 
         for (int i = 0; i < stair.transform.childCount; i++)
         {
             Transform child = stair.transform.GetChild(i);
-            child.gameObject.layer = LayerMask.NameToLayer(DungeonTileLayerName);
+            child.gameObject.layer = dungeonTileLayer;
         }
 
         floorPositions.Add(position); // 내려가는 위치에 바닥 타일이 생성되지 않도록 미리 선점
@@ -544,10 +596,16 @@ public class Dungeon : MonoBehaviour
     {
         foreach (TileMap.Room room in tileMap.rooms)
         {
+            // 시작 방에는 적을 놓지 않는다. 플레이어가 스폰하자마자 적과 붙어 있게 된다.
+            if (room == levelGenerator.StartRoom)
+            {
+                continue;
+            }
+
             Rect spawnArea = room.GetFloorRect();
 
-            int randomX = (int)Random.Range(spawnArea.xMin, spawnArea.xMax);
-            int randomY = (int)Random.Range(spawnArea.yMin, spawnArea.yMax);
+            int randomX = (int)random.Range(spawnArea.xMin, spawnArea.xMax);
+            int randomY = (int)random.Range(spawnArea.yMin, spawnArea.yMax);
 
             Vector3 enemyPosition = new Vector3(randomX * TileSize, 1.0f, randomY * TileSize);
             // enemy 생성

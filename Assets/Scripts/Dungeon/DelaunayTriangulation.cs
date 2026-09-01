@@ -1,9 +1,17 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using UnityEngine;
 using static TileMap;
 
+/// <summary>
+/// Bowyer-Watson 증분 삽입 방식의 델로네 삼각분할.
+/// 방(Room)의 중심점들을 입력으로 받아 방 사이의 인접 관계 후보를 만든다.
+/// </summary>
 public class DelaunayTriangulation
 {
+    /// <summary>좌표 비교 허용 오차. 방 중심이 격자에 정렬되어 공원점이 흔하게 생기므로 필요하다.</summary>
+    public const float Epsilon = 1e-4f;
+
     public class Point
     {
         public Room room;
@@ -19,10 +27,11 @@ public class DelaunayTriangulation
         }
     }
 
-    public class Edge
+    public class Edge : IEquatable<Edge>
     {
         public Point v0;
         public Point v1;
+
         public float cost
         {
             get
@@ -44,22 +53,27 @@ public class DelaunayTriangulation
 
         public override bool Equals(object other)
         {
-            if (false == (other is Edge))
-            {
-                return false;
-            }
-
-            return Equals((Edge)other);
+            return Equals(other as Edge);
         }
 
         public bool Equals(Edge edge)
         {
-            return ((this.v0.position.Equals(edge.v0.position) && this.v1.position.Equals(edge.v1.position)) || (this.v0.position.Equals(edge.v1.position) && this.v1.position.Equals(edge.v0.position)));
+            if (null == edge)
+            {
+                return false;
+            }
+
+            return (Approximately(this.v0.position, edge.v0.position) && Approximately(this.v1.position, edge.v1.position))
+                || (Approximately(this.v0.position, edge.v1.position) && Approximately(this.v1.position, edge.v0.position));
         }
 
+        /// <summary>
+        /// Equals() 가 좌표 기반이고 방향을 가리지 않으므로 해시도 같은 규칙을 따라야 한다.
+        /// XOR 은 교환 법칙이 성립하므로 (v0,v1) 과 (v1,v0) 이 같은 해시를 낸다.
+        /// </summary>
         public override int GetHashCode()
         {
-            return v0.GetHashCode() ^ (v1.GetHashCode() << 2);
+            return Quantize(v0.position) ^ Quantize(v1.position);
         }
     }
 
@@ -74,15 +88,13 @@ public class DelaunayTriangulation
             this.radius = radius;
         }
 
+        /// <summary>
+        /// 원 위(경계)의 점도 내부로 판정한다.
+        /// Bowyer-Watson 에서 공원점을 놓치면 겹치는 삼각형이 남으므로 경계는 포함시키는 편이 안전하다.
+        /// </summary>
         public bool Contains(Vector3 point)
         {
-            float d = Vector3.Distance(center, point);
-            if (radius < d)
-            {
-                return false;
-            }
-
-            return true;
+            return Vector3.Distance(center, point) <= radius + Epsilon;
         }
     }
 
@@ -95,129 +107,143 @@ public class DelaunayTriangulation
         public Circle innerCircle;
         public List<Edge> edges;
 
-        public Triangle(Point p1, Point p2, Point p3)
+        /// <summary>AddPoint() 안에서 제거 대상 표시용. List.Remove() 의 O(n) 탐색을 피한다.</summary>
+        public bool removed;
+
+        private Triangle(Point p1, Point p2, Point p3, Circle circumCircle)
         {
             this.a = p1.position;
             this.b = p2.position;
             this.c = p3.position;
 
-            this.circumCircle = calcCircumCircle();
-            this.innerCircle = calcInnerCircle();
-            this.edges = new List<Edge>();
-            this.edges.Add(new Edge(p1, p2));
-            this.edges.Add(new Edge(p2, p3));
-            this.edges.Add(new Edge(p3, p1));
-        }
-
-        public override bool Equals(object other)
-        {
-            if (false == (other is Triangle))
+            this.circumCircle = circumCircle;
+            this.innerCircle = CalcInnerCircle();
+            this.edges = new List<Edge>
             {
-                return false;
-            }
-
-            return Equals((Triangle)other);
+                new Edge(p1, p2),
+                new Edge(p2, p3),
+                new Edge(p3, p1)
+            };
         }
 
-        public override int GetHashCode()
+        /// <summary>
+        /// 삼각형을 만든다. 축퇴(같은 점 / 일직선)이거나 외접원을 구할 수 없으면 null 을 돌려준다.
+        /// 생성자를 그대로 열어두면 circumCircle 이 null 인 삼각형이 만들어져 이후 전부 NRE 로 이어진다.
+        /// </summary>
+        public static Triangle Create(Point p1, Point p2, Point p3)
         {
-            return a.GetHashCode() ^ (b.GetHashCode() << 2) ^ (c.GetHashCode() >> 2);
-        }
-
-        public bool Equals(Triangle triangle)
-        {
-            return this.a == triangle.a && this.b == triangle.b && this.c == triangle.c;
-        }
-
-        private Circle calcCircumCircle()
-        {
-            // 출처: 삼각형 외접원 구하기 - https://kukuta.tistory.com/444
-
-            if (a == b || b == c || c == a) // 같은 점이 있음. 삼각형 아님. 외접원 구할 수 없음.
+            if (null == p1 || null == p2 || null == p3)
             {
                 return null;
             }
 
-            float mab = (b.x - a.x) / (b.y - a.y) * -1.0f;  // 직선 ab에 수직이등분선의 기울기
-            float a1 = (b.x + a.x) / 2.0f;                  // 직선 ab의 x축 중심 좌표
-            float b1 = (b.y + a.y) / 2.0f;                  // 직선 ab의 y축 중심 좌표
+            Vector2 a = p1.position;
+            Vector2 b = p2.position;
+            Vector2 c = p3.position;
 
-            // 직선 bc
-            float mbc = (b.x - c.x) / (b.y - c.y) * -1.0f;  // 직선 bc에 수직이등분선의 기울기
-            float a2 = (b.x + c.x) / 2.0f;                  // 직선 bc의 x축 중심 좌표
-            float b2 = (b.y + c.y) / 2.0f;                  // 직선 bc의 y축 중심 좌표
-
-            if (mab == mbc)     // 두 수직이등분선의 기울기가 같음. 평행함. 
+            if (Approximately(a, b) || Approximately(b, c) || Approximately(c, a))
             {
-                return null;    // 교점 구할 수 없음
+                return null;
             }
 
-            float x = (mab * a1 - mbc * a2 + b2 - b1) / (mab - mbc);
-            float y = mab * (x - a1) + b1;
-
-            if (b.x == a.x)     // 수직이등분선의 기울기가 0인 경우(수평선)
+            Circle circumCircle = CalcCircumCircle(a, b, c);
+            if (null == circumCircle)
             {
-                x = a2 + (b1 - b2) / mbc;
-                y = b1;
+                return null;
             }
 
-            if (b.y == a.y)     // 수직이등분선의 기울기가 무한인 경우(수직선)
-            {
-                x = a1;
-                if (0.0f == mbc)
-                {
-                    y = b2;
-                }
-                else
-                {
-                    y = mbc * (a1 - a2) + b2;
-                }
-            }
-
-            if (b.x == c.x)     // 수직이등분선의 기울기가 0인 경우(수평선)
-            {
-                x = a1 + (b2 - b1) / mab;
-                y = b2;
-            }
-
-            if (b.y == c.y)     // 수직이등분선의 기울기가 무한인 경우(수직선)
-            {
-                x = a2;
-                if (0.0f == mab)
-                {
-                    y = b1;
-                }
-                else
-                {
-                    y = mab * (a2 - a1) + b1;
-                }
-            }
-
-            Vector3 center = new Vector3(x, y, 0.0f);
-            float radius = Vector3.Distance(center, a);
-
-            return new Circle(center, radius);
+            return new Triangle(p1, p2, p3, circumCircle);
         }
 
-        private Circle calcInnerCircle()
+        public override bool Equals(object other)
         {
-            float e1 = Mathf.Sqrt((this.b.x - this.c.x) * (this.b.x - this.c.x) + (this.b.y - this.c.y) * (this.b.y - this.c.y));
-            float e2 = Mathf.Sqrt((this.c.x - this.a.x) * (this.c.x - this.a.x) + (this.c.y - this.a.y) * (this.c.y - this.a.y));
-            float e3 = Mathf.Sqrt((this.a.x - this.b.x) * (this.a.x - this.b.x) + (this.a.y - this.b.y) * (this.a.y - this.b.y));
+            return Equals(other as Triangle);
+        }
 
-            float x = (e1 * a.x + e2 * b.x + e3 * c.x) / (e1 + e2 + e3);
-            float y = (e1 * a.y + e2 * b.y + e3 * c.y) / (e1 + e2 + e3);
+        /// <summary>꼭짓점 집합이 같으면 같은 삼각형이다(순서 무관).</summary>
+        public bool Equals(Triangle triangle)
+        {
+            if (null == triangle)
+            {
+                return false;
+            }
 
-            Vector3 center = new Vector3(x, y, 0.0f);
-            float semiperimeter = (e1 + e2 + e3) / 2;
-            float area = Mathf.Sqrt(semiperimeter * (semiperimeter - e1) * (semiperimeter - e2) * (semiperimeter - e3));
-            float radius = area / semiperimeter;
-            return new Circle(center, radius);
+            return HasVertex(triangle.a) && HasVertex(triangle.b) && HasVertex(triangle.c);
+        }
+
+        public override int GetHashCode()
+        {
+            // 순서 무관 Equals 와 짝을 맞추기 위해 XOR 로 결합한다.
+            return Quantize(a) ^ Quantize(b) ^ Quantize(c);
+        }
+
+        public bool HasVertex(Vector3 vertex)
+        {
+            return Approximately(a, vertex) || Approximately(b, vertex) || Approximately(c, vertex);
+        }
+
+        /// <summary>
+        /// 세 점의 외접원. 참고: 삼각형 외접원 구하기 - https://kukuta.tistory.com/444
+        ///
+        /// 수직이등분선의 기울기를 그대로 쓰면 수평/수직 변마다 특수 케이스가 생기고 float 동등 비교에
+        /// 의존하게 된다. 여기서는 특수 케이스가 없는 외심 공식(행렬식)을 사용한다.
+        /// d 가 0 이면 세 점이 일직선이라는 뜻이므로 외접원이 존재하지 않는다.
+        /// </summary>
+        private static Circle CalcCircumCircle(Vector2 a, Vector2 b, Vector2 c)
+        {
+            float d = 2.0f * (a.x * (b.y - c.y) + b.x * (c.y - a.y) + c.x * (a.y - b.y));
+            if (Mathf.Abs(d) < Epsilon)
+            {
+                return null; // 일직선. 삼각형이 아니다.
+            }
+
+            float aSqr = a.x * a.x + a.y * a.y;
+            float bSqr = b.x * b.x + b.y * b.y;
+            float cSqr = c.x * c.x + c.y * c.y;
+
+            float x = (aSqr * (b.y - c.y) + bSqr * (c.y - a.y) + cSqr * (a.y - b.y)) / d;
+            float y = (aSqr * (c.x - b.x) + bSqr * (a.x - c.x) + cSqr * (b.x - a.x)) / d;
+
+            float radius = Vector2.Distance(new Vector2(x, y), a);
+            if (float.IsNaN(radius) || float.IsInfinity(radius))
+            {
+                return null;
+            }
+
+            return new Circle(new Vector3(x, y, 0.0f), radius);
+        }
+
+        /// <summary>세 변 길이로 구하는 내접원. 새 방을 놓을 "가장 넓은 빈 공간"을 찾는 데 쓴다.</summary>
+        private Circle CalcInnerCircle()
+        {
+            float e1 = Vector3.Distance(b, c);
+            float e2 = Vector3.Distance(c, a);
+            float e3 = Vector3.Distance(a, b);
+
+            float perimeter = e1 + e2 + e3;
+            if (perimeter < Epsilon)
+            {
+                return new Circle(a, 0.0f);
+            }
+
+            float x = (e1 * a.x + e2 * b.x + e3 * c.x) / perimeter;
+            float y = (e1 * a.y + e2 * b.y + e3 * c.y) / perimeter;
+
+            float s = perimeter / 2.0f;
+            // 부동소수 오차로 음수가 될 수 있으므로 클램프한다. Sqrt(음수) 는 NaN 이다.
+            float areaSqr = Mathf.Max(0.0f, s * (s - e1) * (s - e2) * (s - e3));
+            float radius = Mathf.Sqrt(areaSqr) / s;
+
+            return new Circle(new Vector3(x, y, 0.0f), radius);
         }
     }
 
     private Triangle superTriangle = null;
     public List<Triangle> triangles = new List<Triangle>();
+
+    /// <summary>AddPoint() 에서 매번 재할당하지 않도록 재사용하는 작업 버퍼.</summary>
+    private readonly List<Triangle> badTriangles = new List<Triangle>();
+    private readonly Dictionary<Edge, int> edgeUseCount = new Dictionary<Edge, int>();
 
     public DelaunayTriangulation(List<Room> rooms)
     {
@@ -241,67 +267,55 @@ public class DelaunayTriangulation
     {
         Vector3 point = room.rect.center;
 
-        List<Triangle> badTriangles = new List<Triangle>();
+        badTriangles.Clear();
         foreach (var triangle in triangles)
         {
+            // circumCircle 은 Triangle.Create() 가 보장하지만 방어적으로 한 번 더 확인한다.
+            if (null == triangle.circumCircle)
+            {
+                continue;
+            }
+
             if (true == triangle.circumCircle.Contains(point))
             {
+                triangle.removed = true;
                 badTriangles.Add(triangle);
             }
         }
 
-        List<Edge> polygon = new List<Edge>();
+        if (0 == badTriangles.Count)
+        {
+            return;
+        }
 
-        // first find all the triangles that are no longer valid due to the insertion
+        // 제거 대상 삼각형들의 변 중 "한 번만 등장하는 변"이 새로 채울 다각형의 경계다.
+        // 변마다 등장 횟수를 세면 삼각형 쌍을 전부 비교하는 4중 루프가 필요 없다.
+        edgeUseCount.Clear();
         foreach (var triangle in badTriangles)
         {
-            List<Edge> edges = triangle.edges;
-
-            foreach (Edge edge in edges)
+            foreach (Edge edge in triangle.edges)
             {
-                // find unique edge
-                bool unique = true;
-                foreach (var other in badTriangles)
-                {
-                    if (true == triangle.Equals(other))
-                    {
-                        continue;
-                    }
-
-                    foreach (var otherEdge in other.edges)
-                    {
-                        if (true == edge.Equals(otherEdge))
-                        {
-                            unique = false;
-                            break;
-                        }
-                    }
-
-                    if (false == unique)
-                    {
-                        break;
-                    }
-                }
-
-                if (true == unique)
-                {
-                    polygon.Add(edge);
-                }
+                edgeUseCount.TryGetValue(edge, out int count);
+                edgeUseCount[edge] = count + 1;
             }
         }
 
-        foreach (var badTriangle in badTriangles)
-        {
-            triangles.Remove(badTriangle);
-        }
+        triangles.RemoveAll(triangle => triangle.removed);
 
-        foreach (Edge edge in polygon)
+        Point inserted = new Point(room);
+        foreach (var pair in edgeUseCount)
         {
-            Triangle triangle = CreateTriangle(edge.v0, edge.v1, new Point(room));
+            if (1 != pair.Value)
+            {
+                continue;
+            }
+
+            Triangle triangle = Triangle.Create(pair.Key.v0, pair.Key.v1, inserted);
             if (null == triangle)
             {
                 continue;
             }
+
             triangles.Add(triangle);
         }
     }
@@ -313,27 +327,24 @@ public class DelaunayTriangulation
             return;
         }
 
-        List<Triangle> remove = new List<Triangle>();
-        foreach (var triangle in triangles)
-        {
-            if (true == (triangle.a == superTriangle.a || triangle.a == superTriangle.b || triangle.a == superTriangle.c ||
-                         triangle.b == superTriangle.a || triangle.b == superTriangle.b || triangle.b == superTriangle.c ||
-                         triangle.c == superTriangle.a || triangle.c == superTriangle.b || triangle.c == superTriangle.c
-               )
-            )
-            {
-                remove.Add(triangle);
-            }
-        }
-
-        foreach (var triangle in remove)
-        {
-            triangles.Remove(triangle);
-        }
+        triangles.RemoveAll(triangle =>
+               triangle.HasVertex(superTriangle.a)
+            || triangle.HasVertex(superTriangle.b)
+            || triangle.HasVertex(superTriangle.c));
     }
 
+    /// <summary>
+    /// 모든 입력 점을 감싸는 초대형 삼각형.
+    /// 입력 영역보다 훨씬 크게 잡는 이유는, super triangle 의 변 위에 점이 놓이면
+    /// 삼각형이 아니라 직선이 되어 델로네 삼각분할을 적용할 수 없기 때문이다.
+    /// </summary>
     private Triangle CreateSuperTriangle(List<Room> rooms)
     {
+        if (null == rooms || 0 == rooms.Count)
+        {
+            return null;
+        }
+
         float minX = float.MaxValue;
         float maxX = float.MinValue;
         float minY = float.MaxValue;
@@ -348,31 +359,27 @@ public class DelaunayTriangulation
             maxY = Mathf.Max(maxY, point.y);
         }
 
-        float dx = maxX - minX;
-        float dy = maxY - minY;
+        // 모든 점이 한 자리에 겹쳐 있으면 폭이 0 이라 삼각형을 만들 수 없다. 최소 크기를 보장한다.
+        float dx = Mathf.Max(maxX - minX, 1.0f);
+        float dy = Mathf.Max(maxY - minY, 1.0f);
 
-        // super triangle을 포인트 리스트 보다 크게 잡는 이유는
-        // super triangle의 변과 포인트가 겹치게 되면 삼각형이 아닌 직선이 되므로 델로네 삼각분할을 적용할 수 없기 때문이다.
         Room a = new Room(0, minX - dx, minY - dy, 0, 0);
         Room b = new Room(0, minX - dx, maxY + dy * 3, 0, 0);
         Room c = new Room(0, maxX + dx * 3, minY - dy, 0, 0);
 
-        // super triangle이 직선인 경우 리턴
-        if (a == b || b == c || c == a)
-        {
-            return null;
-        }
-
-        return new Triangle(new Point(a), new Point(b), new Point(c));
+        return Triangle.Create(new Point(a), new Point(b), new Point(c));
     }
 
-    private Triangle CreateTriangle(Point a, Point b, Point c)
+    private static bool Approximately(Vector2 lhs, Vector2 rhs)
     {
-        if (a == b || b == c || c == a)
-        {
-            return null;
-        }
+        return Mathf.Abs(lhs.x - rhs.x) < Epsilon && Mathf.Abs(lhs.y - rhs.y) < Epsilon;
+    }
 
-        return new Triangle(a, b, c);
+    /// <summary>Epsilon 이내의 좌표가 같은 해시 버킷에 들어가도록 격자에 스냅한다.</summary>
+    private static int Quantize(Vector2 position)
+    {
+        int x = Mathf.RoundToInt(position.x / Epsilon);
+        int y = Mathf.RoundToInt(position.y / Epsilon);
+        return x * 73856093 ^ y * 19349663;
     }
 }
