@@ -8,8 +8,23 @@ using UnityEngine;
 /// </summary>
 public class LevelGenerator
 {
-    /// <summary>시작 지점에서 출구까지의 목표 이동 거리(타일). 너무 짧은 던전을 막기 위한 하한이다.</summary>
-    private const int MinJourneyTileCount = 50;
+    /// <summary>
+    /// 맵이 낼 수 있는 최장 경로 중 실제 여정으로 사용할 비율.
+    ///
+    /// 예전에는 여기가 50타일 고정 상한이었다. 그 결과 방을 10개에서 40개로 늘려도
+    /// 실제 이동 거리는 53 → 55타일로 거의 변하지 않았고, roomCount 는 난이도나 분량이 아니라
+    /// "지나칠 방의 개수"를 늘리는 값이 되어 버렸다.
+    /// 맵 크기에 비례하게 바꿔서 roomCount 가 실제 분량 조절 값이 되도록 한다.
+    ///
+    /// 1.0 이면 가장 먼 두 방을 그대로 시작/출구로 쓴다.
+    /// 0.75 는 기존 기본 설정(roomCount=10)에서의 실사용 비율과 비슷하도록 맞춘 값이다.
+    /// </summary>
+    private const float JourneyLengthRatio = 0.75f;
+
+    /// <summary>
+    /// 여정 길이 하한(타일). 맵이 작아서 최장 경로가 이보다 짧으면 잘라내지 않는다.
+    /// </summary>
+    private const int MinJourneyTileCount = 30;
 
     private readonly TileMap tileMap;
     private readonly DungeonRandom random;
@@ -157,8 +172,8 @@ public class LevelGenerator
     }
 
     /// <summary>
-    /// 출구에서 시작 방까지가 지나치게 길면, 출구 기준 MinJourneyTileCount 만큼 떨어진 방으로
-    /// 시작 방을 당겨 이동 거리를 적당히 맞춘다.
+    /// 여정 길이를 맵 크기에 비례하도록 맞춘다.
+    /// 출구에서 시작 방까지의 타일 경로를 따라가다가, 예산 거리만큼 떨어진 지점의 방을 시작 방으로 삼는다.
     /// </summary>
     private void AdjustStartRoomByJourneyLength()
     {
@@ -172,12 +187,14 @@ public class LevelGenerator
 
         // 경로가 없으면 빈 리스트가 온다. TileMap.Validate() 를 통과했다면 여기서 비어 있을 수 없다.
         List<TileMap.Tile> tilePath = tileMap.FindPath(endTile, startTile);
-        if (tilePath.Count <= MinJourneyTileCount)
+
+        int budget = Mathf.Max(MinJourneyTileCount, Mathf.RoundToInt(tilePath.Count * JourneyLengthRatio));
+        if (tilePath.Count <= budget)
         {
             return;
         }
 
-        for (int i = MinJourneyTileCount; i < tilePath.Count; i++)
+        for (int i = budget; i < tilePath.Count; i++)
         {
             TileMap.Room room = tilePath[i].room;
             if (null == room || room == this.EndRoom)

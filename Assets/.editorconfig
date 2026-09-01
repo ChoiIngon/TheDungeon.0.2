@@ -1,0 +1,22 @@
+root = true
+
+# 한글 주석이 있는 소스가 EUC-KR 로 오해석되어 깨진 적이 있다.
+# .cs 는 BOM 을 붙인 UTF-8 로 고정해서 편집기가 인코딩을 추측하지 않게 한다.
+[*]
+charset = utf-8
+end_of_line = crlf
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.cs]
+charset = utf-8-bom
+indent_style = space
+indent_size = 4
+
+[*.{json,yml,yaml,xml,asmdef,editorconfig}]
+indent_style = space
+indent_size = 2
+
+[*.{meta,asset,prefab,unity}]
+insert_final_newline = false
+trim_trailing_whitespace = false

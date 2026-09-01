@@ -30,20 +30,66 @@ public class Dungeon : MonoBehaviour
 
     [Header("Dungeon Generation Settings")]
     public int randomSeed = 0;
+
+    [Min(2)]
+    [Tooltip("생성할 방의 개수. 여정 길이가 맵 크기에 비례하므로 이 값이 곧 분량 조절 값이다.")]
     public int roomCount = 10;
-    public int minRoomSize = 3;
+
+    [Min(TileMap.MinRoomSize)]
+    [Tooltip("방 한 변의 최소 길이. 가장자리 한 줄이 벽이라 " + nameof(TileMap) + ".MinRoomSize 미만은 방 구실을 못 한다.")]
+    public int minRoomSize = TileMap.MinRoomSize;
+
+    [Min(TileMap.MinRoomSize)]
     public int maxRoomSize = 7;
 
     [Header("Unit Object Settings")]
     public GameObject player;
     public GameObject enemyPrefab;
 
+    [Header("Build Options")]
+    [Tooltip("천장을 만든다. 위에서 내려다보는 쿼터뷰에서는 꺼야 안이 보인다.")]
+    public bool buildCeiling = true;
+
+    [Tooltip("NavMesh 를 굽는다. 그리드 턴제(Crawler)에서는 쓰지 않으므로 꺼도 된다.")]
+    public bool buildNavMesh = true;
+
+    [Tooltip("플레이어를 배치하고 적을 소환한다. 끄면 지형만 만들고 배치는 호출자가 맡는다.")]
+    public bool spawnActors = true;
+
+    /// <summary>
+    /// 한 타일에 딸린 표현 오브젝트.
+    /// 안개(fog of war)처럼 "타일 단위로 보이고 안 보이고"를 다루려면 타일과 오브젝트의 대응이 필요하다.
+    /// 이름을 파싱하는 대신 만들 때 바로 기록해 둔다.
+    /// </summary>
+    public class TileVisual
+    {
+        /// <summary>이 타일에 속한 모든 오브젝트(바닥, 천장, 벽, 문, 계단).</summary>
+        public readonly List<GameObject> objects = new List<GameObject>();
+
+        /// <summary>그중 벽만 따로 모은 것. 카메라 방향에 따라 가려야 하기 때문에 구분해 둔다.</summary>
+        public readonly List<GameObject> walls = new List<GameObject>();
+    }
+
     TileMap tileMap = null;
     LevelGenerator levelGenerator = null;
     DungeonRandom random = null;
 
+    private readonly Dictionary<int, TileVisual> tileVisuals = new Dictionary<int, TileVisual>();
+
     public GameObject Start { get; private set; } = null;
     public TileMap.Tile End { get; private set; } = null;
+
+    /// <summary>마지막으로 생성한 타일 맵. 생성에 실패했으면 null 이다.</summary>
+    public TileMap Map => this.tileMap;
+
+    /// <summary>마지막으로 생성한 레벨 배치(시작/출구/잠긴 방). 생성에 실패했으면 null 이다.</summary>
+    public LevelGenerator Level => this.levelGenerator;
+
+    /// <summary>생성에 사용한 난수. 같은 시드로 이어서 굴리고 싶을 때 쓴다.</summary>
+    public DungeonRandom Random => this.random;
+
+    /// <summary>타일 인덱스 → 그 타일의 표현 오브젝트.</summary>
+    public IReadOnlyDictionary<int, TileVisual> TileVisuals => this.tileVisuals;
 
     private GameObject tiles;
 
@@ -82,8 +128,38 @@ public class Dungeon : MonoBehaviour
 
         Build();
 
+        if (false == spawnActors)
+        {
+            return;
+        }
+
         InitializePlayerPosition();
         InitializeEnemy();
+    }
+
+    /// <summary>
+    /// 타일 인덱스에 표현 오브젝트를 등록한다.
+    /// 안개나 벽 가리기처럼 타일 단위로 오브젝트를 껐다 켜는 기능이 이 대응표를 쓴다.
+    /// </summary>
+    private void RegisterTileObject(int tileIndex, GameObject target, bool isWall = false)
+    {
+        if (null == target)
+        {
+            return;
+        }
+
+        if (false == tileVisuals.TryGetValue(tileIndex, out TileVisual visual))
+        {
+            visual = new TileVisual();
+            tileVisuals[tileIndex] = visual;
+        }
+
+        visual.objects.Add(target);
+
+        if (true == isWall)
+        {
+            visual.walls.Add(target);
+        }
     }
 
     /// <summary>
@@ -140,6 +216,11 @@ public class Dungeon : MonoBehaviour
         foreach (var corridor in tileMap.corridors)
         {
             CreateCorridorObject(corridor, floorPositions);
+        }
+
+        if (false == buildNavMesh)
+        {
+            return;
         }
 
         NavMeshSurface navMeshSurface = tiles.GetComponent<NavMeshSurface>();
@@ -224,6 +305,7 @@ public class Dungeon : MonoBehaviour
                 doorObject.layer = dungeonTileLayer;
                 doorObject.transform.SetParent(parent, false);
                 doorObject.transform.Rotate(0.0f, rotationY, 0.0f);
+                RegisterTileObject(tile.index, doorObject);
             }
 
             return null;
@@ -234,6 +316,7 @@ public class Dungeon : MonoBehaviour
         wallObject.layer = dungeonTileLayer;
         wallObject.transform.SetParent(parent, false);
         wallObject.transform.Rotate(0.0f, rotationY, 0.0f);
+        RegisterTileObject(tile.index, wallObject, isWall: true);
 
         return wallObject;
     }
@@ -259,15 +342,17 @@ public class Dungeon : MonoBehaviour
                     floorObject.transform.SetParent(roomObject.transform, false);
                     floorObject.layer = dungeonTileLayer;
                     floorPositions.Add(position);
+                    RegisterTileObject(tile.index, floorObject);
                 }
 
                 // 천장
-                if (levelGenerator.Start != tile)
+                if (true == buildCeiling && levelGenerator.Start != tile)
                 {
                     GameObject ceilObject = Instantiate(ceilPrefab, position + Vector3.up * (WallHeight - FloorHeightOffset), Quaternion.identity);
                     ceilObject.name = $"Ceil_{tile.index}";
                     ceilObject.transform.SetParent(roomObject.transform, false);
                     ceilObject.transform.Rotate(180.0f, 0.0f, 0.0f);
+                    RegisterTileObject(tile.index, ceilObject);
                 }
             }
         }
@@ -376,12 +461,17 @@ public class Dungeon : MonoBehaviour
                 floorObject.transform.SetParent(corridorObject.transform, false);
                 floorObject.layer = dungeonTileLayer;
                 floorPositions.Add(position);
+                RegisterTileObject(tile.index, floorObject);
 
                 // 천장
-                GameObject ceilObject = Instantiate(ceilPrefab, position + Vector3.up * (WallHeight - FloorHeightOffset), Quaternion.identity);
-                ceilObject.name = $"Ceil_{tile.index}";
-                ceilObject.transform.SetParent(corridorObject.transform, false);
-                ceilObject.transform.Rotate(180.0f, 0.0f, 0.0f);
+                if (true == buildCeiling)
+                {
+                    GameObject ceilObject = Instantiate(ceilPrefab, position + Vector3.up * (WallHeight - FloorHeightOffset), Quaternion.identity);
+                    ceilObject.name = $"Ceil_{tile.index}";
+                    ceilObject.transform.SetParent(corridorObject.transform, false);
+                    ceilObject.transform.Rotate(180.0f, 0.0f, 0.0f);
+                    RegisterTileObject(tile.index, ceilObject);
+                }
             }
 
             bool hasTopWall = tile.GetNeighbor(TileMap.Tile.Direction.Top)?.type == TileMap.Tile.Type.Wall;
@@ -397,6 +487,7 @@ public class Dungeon : MonoBehaviour
                 wallObject.layer = dungeonTileLayer;
                 wallObject.transform.SetParent(corridorObject.transform, false);
                 wallObject.transform.Rotate(0.0f, 180.0f, 0.0f);
+                RegisterTileObject(tile.index, wallObject, isWall: true);
                 topWalls.Add(wallObject);
             }
 
@@ -408,6 +499,7 @@ public class Dungeon : MonoBehaviour
                 wallObject.layer = dungeonTileLayer;
                 wallObject.transform.SetParent(corridorObject.transform, false);
                 wallObject.transform.Rotate(0.0f, 0.0f, 0.0f);
+                RegisterTileObject(tile.index, wallObject, isWall: true);
                 bottomWalls.Add(wallObject);
             }
 
@@ -419,6 +511,7 @@ public class Dungeon : MonoBehaviour
                 wallObject.layer = dungeonTileLayer;
                 wallObject.transform.SetParent(corridorObject.transform, false);
                 wallObject.transform.Rotate(0.0f, 90.0f, 0.0f);
+                RegisterTileObject(tile.index, wallObject, isWall: true);
                 leftWalls.Add(wallObject);
             }
 
@@ -430,6 +523,7 @@ public class Dungeon : MonoBehaviour
                 wallObject.layer = dungeonTileLayer;
                 wallObject.transform.SetParent(corridorObject.transform, false);
                 wallObject.transform.Rotate(0.0f, 270.0f, 0.0f);
+                RegisterTileObject(tile.index, wallObject, isWall: true);
                 rightWalls.Add(wallObject);
             }
         }
@@ -442,6 +536,9 @@ public class Dungeon : MonoBehaviour
 
     public void Clear()
     {
+        // 오브젝트가 사라지면 대응표도 함께 버려야 한다. tiles 가 없더라도 남아 있을 수 있으므로 먼저 비운다.
+        this.tileVisuals.Clear();
+
         if (null == this.tiles)
         {
             return;
@@ -491,6 +588,8 @@ public class Dungeon : MonoBehaviour
             child.gameObject.layer = dungeonTileLayer;
         }
 
+        RegisterTileObject(tile.index, stair);
+
         this.Start = stair;
     }
 
@@ -508,6 +607,8 @@ public class Dungeon : MonoBehaviour
             Transform child = stair.transform.GetChild(i);
             child.gameObject.layer = dungeonTileLayer;
         }
+
+        RegisterTileObject(tile.index, stair);
 
         floorPositions.Add(position); // 내려가는 위치에 바닥 타일이 생성되지 않도록 미리 선점
     }

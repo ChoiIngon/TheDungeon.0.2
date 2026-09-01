@@ -181,7 +181,26 @@ public class TileMap
         }
     }
 
-    private const int MinRoomSize = 5;
+    /// <summary>
+    /// 방 한 변의 최소 길이.
+    /// 방은 가장자리 한 줄이 벽이므로 5보다 작으면 안쪽 바닥이 1칸 미만이 되어 방 구실을 못 한다.
+    /// Config.minRoomSize 가 이보다 작으면 이 값으로 올려서 쓴다.
+    /// </summary>
+    public const int MinRoomSize = 5;
+
+    /// <summary>
+    /// 방 개수 대비 추가할 우회로(순환) 개수의 범위.
+    ///
+    /// 고정값을 쓰면 모든 던전의 순환 개수가 똑같아져서 다양성이 사라진다.
+    /// 범위에서 뽑아 던전마다 다르게 만들되, 하한 덕분에 "모든 길이 외길"인 던전은 나오지 않는다.
+    /// </summary>
+    private const float ExtraConnectionRatioMin = 0.15f;
+    private const float ExtraConnectionRatioMax = 0.35f;
+
+    /// <summary>
+    /// 최소 우회로 개수. 모든 길이 외길인 던전이 나오지 않도록 하는 하한이다.
+    /// </summary>
+    private const int MinExtraConnections = 2;
 
     /// <summary>
     /// 맵 가장자리에 남겨 두는 빈 타일 폭.
@@ -271,6 +290,16 @@ public class TileMap
         {
             failureReason = $"roomCount({config.roomCount}) must be 2 or more";
             return false;
+        }
+
+        if (config.minRoomSize < MinRoomSize)
+        {
+            Debug.LogWarning($"TileMap: minRoomSize({config.minRoomSize}) 는 최소 {MinRoomSize} 여야 한다. {MinRoomSize} 로 올려서 생성한다.");
+        }
+
+        if (config.maxRoomSize < config.minRoomSize)
+        {
+            Debug.LogWarning($"TileMap: maxRoomSize({config.maxRoomSize}) 가 minRoomSize({config.minRoomSize}) 보다 작다. minRoomSize 에 맞춰 생성한다.");
         }
 
         var candidate = new TileMap(config, random);
@@ -776,14 +805,21 @@ public class TileMap
         SelectRoom(startRoom, 1);
 
         // 트리 순회만으로 목표 개수를 못 채웠다면 남은 후보로 채운다.
+        //
+        // 예전에는 여기서 candidateRooms[0] 부터 순서대로 가져왔다. 그런데 index 1~3 은
+        // CreateRooms() 가 고정 좌표에 놓는 씨앗 방이라, 그 세 방이 던전의 70% 이상에 등장하면서
+        // 늘 같은 상대 배치가 반복됐다. 무작위로 뽑아 편향을 없앤다.
+        var selected = new HashSet<Room>(this.rooms);
         while (this.config.roomCount > this.rooms.Count && 0 < candidateRooms.Count)
         {
-            Room room = candidateRooms[0];
-            if (false == this.rooms.Contains(room))
+            int index = random.Range(0, candidateRooms.Count);
+            Room room = candidateRooms[index];
+            candidateRooms.RemoveAt(index);
+
+            if (true == selected.Add(room))
             {
                 this.rooms.Add(room);
             }
-            candidateRooms.RemoveAt(0);
         }
 
         // 여기서 만든 인접 관계는 "고르기" 위한 임시 그래프다.
@@ -931,21 +967,7 @@ public class TileMap
             return false;
         }
 
-        foreach (var edge in mst.edges)
-        {
-            if (false == random.Chance(12.5f)) // 12.5% 확률로 여분 간선 추가
-            {
-                continue;
-            }
-
-            if (true == mst.connections.Contains(edge))
-            {
-                continue;
-            }
-
-            mst.connections.Add(edge);
-        }
-
+        // 1) 신장 트리 간선을 먼저 판다. 이것이 전체 연결을 책임진다.
         foreach (var connection in mst.connections)
         {
             if (false == ConnectRoom(connection.room1, connection.room2))
@@ -957,7 +979,70 @@ public class TileMap
             connection.room2.neighbors.Add(connection.room1);
         }
 
+        // 2) 남은 간선으로 우회로(순환)를 만든다.
+        //
+        // 예전에는 간선마다 12.5% 확률을 굴렸다. MST 를 빼고 남는 간선 수가 원래 적어서
+        // 순환 기대값이 1.4개에 그쳤고, 22% 의 던전은 순환이 아예 없는 완전 트리였다.
+        // 모든 길이 되돌아가기 강제인 던전이 5판 중 1판꼴로 나온 셈이다.
+        // 확률 대신 방 개수에 비례하는 목표치를 세우고, 성공할 때까지 후보를 소진한다.
+        AddExtraConnections(selectedRooms, mst);
+
         return true;
+    }
+
+    /// <summary>
+    /// 신장 트리에 없는 간선을 골라 우회로를 만든다.
+    /// 굴착에 실패할 수 있으므로 목표 개수를 채울 때까지 후보를 순서대로 시도한다.
+    /// </summary>
+    private void AddExtraConnections(List<Room> selectedRooms, MinimumSpanningTree mst)
+    {
+        int lo = Mathf.Max(MinExtraConnections, Mathf.RoundToInt(selectedRooms.Count * ExtraConnectionRatioMin));
+        int hi = Mathf.Max(lo, Mathf.RoundToInt(selectedRooms.Count * ExtraConnectionRatioMax));
+        int target = random.Range(lo, hi + 1);
+
+        var used = new HashSet<MinimumSpanningTree.Edge>(mst.connections);
+        var candidates = new List<MinimumSpanningTree.Edge>();
+        foreach (var edge in mst.edges)
+        {
+            if (true == used.Contains(edge))
+            {
+                continue;
+            }
+
+            candidates.Add(edge);
+        }
+
+        Shuffle(candidates);
+
+        int added = 0;
+        foreach (var edge in candidates)
+        {
+            if (added >= target)
+            {
+                break;
+            }
+
+            if (false == ConnectRoom(edge.room1, edge.room2))
+            {
+                continue;
+            }
+
+            edge.room1.neighbors.Add(edge.room2);
+            edge.room2.neighbors.Add(edge.room1);
+            added++;
+        }
+    }
+
+    /// <summary>피셔-예이츠 셔플. 주입된 난수를 쓰므로 시드가 같으면 결과도 같다.</summary>
+    private void Shuffle<T>(List<T> list)
+    {
+        for (int i = list.Count - 1; i > 0; i--)
+        {
+            int j = random.Range(0, i + 1);
+            T tmp = list[i];
+            list[i] = list[j];
+            list[j] = tmp;
+        }
     }
 
     /// <summary>
