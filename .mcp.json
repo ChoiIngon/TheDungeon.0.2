@@ -1,7 +1,18 @@
-﻿{
-	"servers": {
-		"codebase": {
-			"url": "http://localhost:3000/api/mcp"
-		}
-	}
+{
+  "mcpServers": {
+    "aseprite": {
+      "type": "stdio",
+      "command": "uv",
+      "args": [
+        "run",
+        "--project",
+        "${ASEPRITE_MCP_DIR:-../aseprite-mcp}",
+        "-m",
+        "aseprite_mcp"
+      ],
+      "env": {
+        "PYTHONPATH": "${ASEPRITE_MCP_DIR:-../aseprite-mcp}"
+      }
+    }
+  }
 }

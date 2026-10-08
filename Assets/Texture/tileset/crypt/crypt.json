@@ -1,0 +1,387 @@
+{
+  "type": "tileset",
+  "name": "crypt",
+  "image": "crypt.png",
+  "size": {
+    "w": 252,
+    "h": 132
+  },
+  "coords": "px, origin top-left, y-down",
+  "pixelsPerUnit": 32,
+  "padding": 2,
+  "decalLayers": {
+    "rule": "flat decals lie on the same plane, so order them by layer, not by depth. A higher layer always covers a lower one; decals of the same layer may draw in any order (they are drawn to look the same either way, e.g. two floor_edge decals crossing in a corner)",
+    "2d": "draw order: floor → layer 1 → layer 2 → … → walls/doors (back to front as usual)",
+    "3d": "render decals after opaque geometry, in ascending layer order, depth test on, depth write off; also lift each decal by lift × layer above the floor top",
+    "lift": 0.002,
+    "layers": {
+      "1": "floor_edge (wall-side moss/dust)",
+      "2": "rugs, carpets (reserved)"
+    }
+  },
+  "axes": "x right, y up, z away from the camera (front face = z min side, faces the camera)",
+  "faceRules": {
+    "front": "seen from the front (camera side); texture left = object left (x min), texture top = object top",
+    "back": "seen from behind; texture left = object right (x max)",
+    "top": "seen from above with the FRONT edge at the texture bottom; texture left = object left",
+    "side": "end faces (x min and x max); seen from outside, texture top = object top, texture left = front edge for the right end"
+  },
+  "selection": "wall_N / floor_N / floor_edge_N: random variant per tile (per decal), independently",
+  "objects": {
+    "wall": {
+      "size": {
+        "x": 1,
+        "y": 1,
+        "z": 0.25
+      },
+      "variants": [
+        {
+          "name": "wall_1",
+          "faces": {
+            "front": {
+              "x": 2,
+              "y": 2,
+              "w": 32,
+              "h": 32
+            },
+            "back": {
+              "x": 38,
+              "y": 2,
+              "w": 32,
+              "h": 32
+            },
+            "top": {
+              "x": 209,
+              "y": 74,
+              "w": 32,
+              "h": 8
+            },
+            "side": {
+              "x": 138,
+              "y": 74,
+              "w": 8,
+              "h": 32
+            }
+          }
+        },
+        {
+          "name": "wall_2",
+          "faces": {
+            "front": {
+              "x": 74,
+              "y": 2,
+              "w": 32,
+              "h": 32
+            },
+            "back": {
+              "x": 110,
+              "y": 2,
+              "w": 32,
+              "h": 32
+            },
+            "top": {
+              "x": 2,
+              "y": 110,
+              "w": 32,
+              "h": 8
+            },
+            "side": {
+              "x": 150,
+              "y": 74,
+              "w": 8,
+              "h": 32
+            }
+          }
+        },
+        {
+          "name": "wall_3",
+          "faces": {
+            "front": {
+              "x": 146,
+              "y": 2,
+              "w": 32,
+              "h": 32
+            },
+            "back": {
+              "x": 182,
+              "y": 2,
+              "w": 32,
+              "h": 32
+            },
+            "top": {
+              "x": 38,
+              "y": 110,
+              "w": 32,
+              "h": 8
+            },
+            "side": {
+              "x": 162,
+              "y": 74,
+              "w": 8,
+              "h": 32
+            }
+          }
+        },
+        {
+          "name": "wall_4",
+          "faces": {
+            "front": {
+              "x": 218,
+              "y": 2,
+              "w": 32,
+              "h": 32
+            },
+            "back": {
+              "x": 2,
+              "y": 38,
+              "w": 32,
+              "h": 32
+            },
+            "top": {
+              "x": 74,
+              "y": 110,
+              "w": 32,
+              "h": 8
+            },
+            "side": {
+              "x": 174,
+              "y": 74,
+              "w": 8,
+              "h": 32
+            }
+          }
+        }
+      ]
+    },
+    "floor": {
+      "size": {
+        "x": 1,
+        "y": 0.25,
+        "z": 1
+      },
+      "variants": [
+        {
+          "name": "floor_1",
+          "faces": {
+            "top": {
+              "x": 38,
+              "y": 38,
+              "w": 32,
+              "h": 32
+            },
+            "front": {
+              "x": 110,
+              "y": 110,
+              "w": 32,
+              "h": 8
+            }
+          }
+        },
+        {
+          "name": "floor_2",
+          "faces": {
+            "top": {
+              "x": 74,
+              "y": 38,
+              "w": 32,
+              "h": 32
+            },
+            "front": {
+              "x": 146,
+              "y": 110,
+              "w": 32,
+              "h": 8
+            }
+          }
+        },
+        {
+          "name": "floor_3",
+          "faces": {
+            "top": {
+              "x": 110,
+              "y": 38,
+              "w": 32,
+              "h": 32
+            },
+            "front": {
+              "x": 182,
+              "y": 110,
+              "w": 32,
+              "h": 8
+            }
+          }
+        },
+        {
+          "name": "floor_4",
+          "faces": {
+            "top": {
+              "x": 146,
+              "y": 38,
+              "w": 32,
+              "h": 32
+            },
+            "front": {
+              "x": 218,
+              "y": 110,
+              "w": 32,
+              "h": 8
+            }
+          }
+        }
+      ]
+    },
+    "door_frame": {
+      "size": {
+        "x": 0.0625,
+        "y": 1,
+        "z": 0.25
+      },
+      "variants": [
+        {
+          "name": "door_frame",
+          "faces": {
+            "front": {
+              "x": 197,
+              "y": 74,
+              "w": 2,
+              "h": 32
+            },
+            "back": {
+              "x": 203,
+              "y": 74,
+              "w": 2,
+              "h": 32
+            },
+            "top": {
+              "x": 2,
+              "y": 122,
+              "w": 2,
+              "h": 8
+            }
+          }
+        }
+      ],
+      "placement": {
+        "count": 2,
+        "x": [
+          0,
+          0.9375
+        ],
+        "note": "문 타일(1×1×0.25) 안 좌우 끝. 오른쪽 문틀도 같은 텍스처"
+      }
+    },
+    "door_leaf": {
+      "size": {
+        "x": 0.875,
+        "y": 1,
+        "z": 0.21875
+      },
+      "variants": [
+        {
+          "name": "door_leaf",
+          "faces": {
+            "front": {
+              "x": 74,
+              "y": 74,
+              "w": 28,
+              "h": 32
+            },
+            "back": {
+              "x": 106,
+              "y": 74,
+              "w": 28,
+              "h": 32
+            },
+            "top": {
+              "x": 8,
+              "y": 122,
+              "w": 28,
+              "h": 7
+            },
+            "side": {
+              "x": 186,
+              "y": 74,
+              "w": 7,
+              "h": 32
+            }
+          }
+        }
+      ],
+      "placement": {
+        "x": 0.0625,
+        "z": 0.015625,
+        "hinge": "left edge (x = 0.0625), vertical axis",
+        "open": "rotate 90° around the hinge toward the room (camera side)"
+      }
+    },
+    "floor_edge": {
+      "size": {
+        "x": 1,
+        "y": 0,
+        "z": 1
+      },
+      "variants": [
+        {
+          "name": "floor_edge_1",
+          "faces": {
+            "top": {
+              "x": 182,
+              "y": 38,
+              "w": 32,
+              "h": 32
+            }
+          }
+        },
+        {
+          "name": "floor_edge_2",
+          "faces": {
+            "top": {
+              "x": 218,
+              "y": 38,
+              "w": 32,
+              "h": 32
+            }
+          }
+        },
+        {
+          "name": "floor_edge_3",
+          "faces": {
+            "top": {
+              "x": 2,
+              "y": 74,
+              "w": 32,
+              "h": 32
+            }
+          }
+        },
+        {
+          "name": "floor_edge_4",
+          "faces": {
+            "top": {
+              "x": 38,
+              "y": 74,
+              "w": 32,
+              "h": 32
+            }
+          }
+        }
+      ],
+      "decal": true,
+      "layer": 1,
+      "placement": {
+        "onTopOf": "floor",
+        "y": "floor top (0.25) + decalLayers.lift × layer",
+        "when": "one decal per floor side whose neighbor cell is a wall (a floor walled on 4 sides gets 4)",
+        "textureTopEdge": "the wall side",
+        "rotationBySide": {
+          "north": 0,
+          "east": 90,
+          "south": 180,
+          "west": 270
+        },
+        "rotationNote": "degrees clockwise seen from above, around the floor tile's vertical center axis; north = +z (away from camera)",
+        "selection": "random variant per decal"
+      }
+    }
+  }
+}

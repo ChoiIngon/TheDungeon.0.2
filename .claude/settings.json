@@ -1,0 +1,41 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__aseprite__*",
+      "Bash(python .claude/skills/dungeon-tile/scripts/dungeon_atlas.py:*)"
+    ],
+    "ask": [
+      "mcp__aseprite__run_lua_script",
+      "mcp__aseprite__delete_layer",
+      "mcp__aseprite__delete_frame",
+      "mcp__aseprite__delete_tag",
+      "mcp__aseprite__delete_slice",
+      "mcp__aseprite__flatten_sprite",
+      "mcp__aseprite__start_preview_server"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "mcp__aseprite__(export_.*|run_lua_script)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"$CLAUDE_PROJECT_DIR/.claude/hooks/sync_texture.py\"",
+            "timeout": 60
+          }
+        ]
+      },
+      {
+        "matcher": "mcp__aseprite__(draw_.*|fill_.*|erase_.*|outline_.*|apply_.*|adjust_.*|replace_color|invert_colors|quantize_to_palette|remap_colors_in_cel_range|copy_region|move_region|copy_cel|copy_layers_between_sprites|flip_layer|rotate_layer|merge_layer_down|import_image_as_layer|run_lua_script|set_cel_position|set_layer_visibility|set_tiles)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"$CLAUDE_PROJECT_DIR/.claude/hooks/auto_preview.py\"",
+            "timeout": 60
+          }
+        ]
+      }
+    ]
+  }
+}

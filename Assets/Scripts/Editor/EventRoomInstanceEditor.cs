@@ -1,4 +1,4 @@
-using UnityEditor;
+﻿using UnityEditor;
 using UnityEngine;
 using System.Collections.Generic;
 
@@ -376,7 +376,7 @@ public class EventRoomInstanceEditor : Editor
         unchecked
         {
             int hash = 17;
-            hash = (hash * 23) + instance.GetInstanceID();
+            hash = (hash * 23) + instance.GetEntityId().GetHashCode();
             hash = (hash * 23) + Mathf.Max(5, instance.width);
             hash = (hash * 23) + Mathf.Max(5, instance.height);
             hash = (hash * 23) + previewTileSize.GetHashCode();
@@ -384,9 +384,9 @@ public class EventRoomInstanceEditor : Editor
             hash = (hash * 23) + (showPrefabMeshes ? 1 : 0);
             hash = (hash * 23) + (showFloorMeshes ? 1 : 0);
             hash = (hash * 23) + (showWallMeshes ? 1 : 0);
-            int wallPrefabId = instance.wallPrefab == null ? 0 : instance.wallPrefab.GetInstanceID();
+            int wallPrefabId = instance.wallPrefab == null ? 0 : instance.wallPrefab.GetEntityId().GetHashCode();
             hash = (hash * 23) + wallPrefabId;
-            int floorPrefabId = instance.floorPrefab == null ? 0 : instance.floorPrefab.GetInstanceID();
+            int floorPrefabId = instance.floorPrefab == null ? 0 : instance.floorPrefab.GetEntityId().GetHashCode();
             hash = (hash * 23) + floorPrefabId;
             hash = (hash * 23) + instance.prefabPlacements.Count;
             hash = (hash * 23) + instance.doors.Count;
@@ -399,7 +399,7 @@ public class EventRoomInstanceEditor : Editor
                     continue;
                 }
 
-                int prefabId = placement.prefab == null ? 0 : placement.prefab.GetInstanceID();
+                int prefabId = placement.prefab == null ? 0 : placement.prefab.GetEntityId().GetHashCode();
                 hash = (hash * 23) + prefabId;
                 hash = (hash * 23) + placement.localOffset.GetHashCode();
                 hash = (hash * 23) + placement.localEulerAngles.GetHashCode();
@@ -415,7 +415,7 @@ public class EventRoomInstanceEditor : Editor
 
                 hash = (hash * 23) + ((int)door.side);
                 hash = (hash * 23) + door.offset;
-                hash = (hash * 23) + (door.prefab == null ? 0 : door.prefab.GetInstanceID());
+                hash = (hash * 23) + (door.prefab == null ? 0 : door.prefab.GetEntityId().GetHashCode());
             }
 
             return hash;

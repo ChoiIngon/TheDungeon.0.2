@@ -1,0 +1,37 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fba2e4b20b6ea7b48a839321073454a4, type: 3}
+  m_Name: crypt_TileSet
+  m_EditorClassIdentifier: Assembly-CSharp::Pixel.Dungeon.DungeonTileSet
+  walls:
+  - {fileID: 5759518933234868424, guid: 6fc9097ad6015424dbc3b199d403bd46, type: 3}
+  - {fileID: 8607543358346602952, guid: 640b36d09d05252409c8f0a7ec45d6ee, type: 3}
+  - {fileID: 6733004535613689041, guid: e18b11117718de74888e8855cc161a24, type: 3}
+  - {fileID: 4031443625760205828, guid: ffc26dbcc31b9b045924f472899c479b, type: 3}
+  floors:
+  - {fileID: 593475865966710896, guid: 357820c9953707446a5f4befb8bec2e3, type: 3}
+  - {fileID: 238755245647447952, guid: 03c83b2194a4f114b8286bdf39c65745, type: 3}
+  - {fileID: 8753818845461409807, guid: fc4cd391c5d9df14bae55a50b9bde250, type: 3}
+  - {fileID: 1025481998675053834, guid: 7f7f6394cebcd4345abc45c5fec12f68, type: 3}
+  door: {fileID: 4235103916986710204, guid: d7fee3c3f0ba923468663656944b46e8, type: 3}
+  floorEdges:
+  - {fileID: 3221720341939120961, guid: 3d9ab3937c553c049924a49a06adda71, type: 3}
+  - {fileID: 4805485404271913694, guid: 66a082a38641c9242b45357e8de994ca, type: 3}
+  - {fileID: 1898862464108674493, guid: cbb6468b1e4c5dd479545912f4cef755, type: 3}
+  - {fileID: 9067426913390298423, guid: ef8fb232a81db2245ad16c7123dbf245, type: 3}
+  edgeRotation:
+  - 0
+  - 90
+  - 180
+  - 270
+  floorTopY: 0.25
+  edgeLift: 0.002

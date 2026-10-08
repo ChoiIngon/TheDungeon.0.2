@@ -1,0 +1,6 @@
+{
+  "env": {
+    "ASEPRITE_PATH": "<Aseprite 실행 파일 경로. 예: C:\\Program Files\\Aseprite\\Aseprite.exe>",
+    "ASEPRITE_MCP_DIR": "<aseprite-mcp 서버 폴더 경로. 생략하면 프로젝트 옆 폴더 ../aseprite-mcp>"
+  }
+}
