@@ -1,0 +1,3 @@
+[submodule "aseprite-mcp"]
+	path = Aseprite/aseprite-mcp
+	url = https://github.com/diivi/aseprite-mcp.git

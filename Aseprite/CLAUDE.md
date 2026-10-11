@@ -43,7 +43,7 @@
 | 변수 | 쓰는 곳 | 없을 때 |
 |---|---|---|
 | `ASEPRITE_PATH` | 훅(`auto_preview.py`), 던전 스크립트(`tileset.py` 등) | PATH의 `aseprite` |
-| `ASEPRITE_MCP_DIR` | `.mcp.json` (aseprite MCP 서버 코드 위치) | 프로젝트 옆 폴더 `../aseprite-mcp` |
+| `ASEPRITE_MCP_DIR` | `.mcp.json` (aseprite MCP 서버 코드 위치) | 서브모듈 `Aseprite/aseprite-mcp` |
 
 - 프로젝트 밖 의존: aseprite MCP 서버는 자기 폴더의 `.env`에서 `ASEPRITE_PATH`를 따로 읽는다. 새 기계에서는 그 파일도 맞춘다
 - PATH에 있어야 하는 프로그램: `python`(+ Pillow), `uv`

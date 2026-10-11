@@ -6,12 +6,12 @@
       "args": [
         "run",
         "--project",
-        "${ASEPRITE_MCP_DIR:-../aseprite-mcp}",
+        "${ASEPRITE_MCP_DIR:-Aseprite/aseprite-mcp}",
         "-m",
         "aseprite_mcp"
       ],
       "env": {
-        "PYTHONPATH": "${ASEPRITE_MCP_DIR:-../aseprite-mcp}"
+        "PYTHONPATH": "${ASEPRITE_MCP_DIR:-Aseprite/aseprite-mcp}"
       }
     }
   }
