@@ -216,6 +216,12 @@ public class TileMap
     /// </summary>
     private const int MaxRepositionIterations = 4096;
 
+    /// <summary>
+    /// 방을 고를 때 순회 경로상 앞서 채택한 방과 벌어질 수 있는 최대 빈 칸 수.
+    /// 이보다 멀어지면 건너뛰려던 방을 대신 채택해서 다른 방들과 동떨어진 방이 생기지 않게 한다.
+    /// </summary>
+    private const int MaxRoomGap = 8;
+
     private readonly Config config;
     private readonly DungeonRandom random;
     private readonly int minRoomSize;
@@ -854,7 +860,8 @@ public class TileMap
         return this.rooms;
     }
 
-    private void SelectRoom(Room room, int depth)
+    /// <param name="lastSelected">이 순회 경로에서 가장 최근에 채택된 방. 시작 방이면 null.</param>
+    private void SelectRoom(Room room, int depth, Room lastSelected = null)
     {
         depth--;
 
@@ -862,6 +869,7 @@ public class TileMap
         {
             depth = RandomDepthCount.Random();
             this.rooms.Add(room);
+            lastSelected = room;
         }
 
         // MST 는 트리(사이클 없음)이므로, 지나온 간선을 지우면 같은 방을 두 번 방문하지 않는다.
@@ -873,8 +881,34 @@ public class TileMap
             neighbor.neighbors.Remove(room);
             room.neighbors.RemoveAt(index);
 
-            SelectRoom(neighbor, depth);
+            // 간격(RandomDepthCount)만큼 방을 건너뛰다 보면, 건너뛴 방들의 폭이 그대로 빈 공간이 되어
+            // 다른 방들과 동떨어진 방이 생긴다(2천 판 중 2% 가 10칸 넘게 떨어졌다).
+            // 다음 방이 마지막으로 채택한 방에서 MaxRoomGap 을 넘게 벗어나면, 건너뛰려던 지금 방을 대신 채택해 간격을 끊는다.
+            if (null != lastSelected && room != lastSelected && MaxRoomGap < GetRoomGap(neighbor, lastSelected))
+            {
+                depth = RandomDepthCount.Random();
+                this.rooms.Add(room);
+                lastSelected = room;
+
+                if (this.config.roomCount <= this.rooms.Count)
+                {
+                    break;
+                }
+            }
+
+            SelectRoom(neighbor, depth, lastSelected);
         }
+    }
+
+    /// <summary>
+    /// 두 방 사이의 빈 칸 수(체비쇼프 거리). 맞닿아 있거나 겹치면 0 이다.
+    /// 가로·세로 중 더 많이 떨어진 쪽을 쓰므로, 대략 두 방을 잇는 복도 길이에 해당한다.
+    /// </summary>
+    private static float GetRoomGap(Room a, Room b)
+    {
+        float dx = Mathf.Max(0.0f, Mathf.Max(a.rect.xMin - b.rect.xMax, b.rect.xMin - a.rect.xMax));
+        float dy = Mathf.Max(0.0f, Mathf.Max(a.rect.yMin - b.rect.yMax, b.rect.yMin - a.rect.yMax));
+        return Mathf.Max(dx, dy);
     }
 
     /// <summary>
