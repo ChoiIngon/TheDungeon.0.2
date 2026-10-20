@@ -520,6 +520,28 @@ public class TileMap
         return tiles[y * width + x];
     }
 
+    /// <summary>
+    /// 지형만 담은 2차원 배열을 만든다. 인덱스는 [x, y] 이며 크기는 [width, height] 이다.
+    ///
+    /// 값은 None(빈 공간) / Floor(바닥) / Wall(벽) 세 가지뿐이다.
+    /// 문·기믹 같은 레벨 디자인 정보는 담지 않는다(문 자리도 그냥 Floor 다).
+    /// Finalize 단계에서 배열에서 빠진 타일(null)은 None 으로 채운다.
+    /// </summary>
+    public Tile.Type[,] ToTypeGrid()
+    {
+        var grid = new Tile.Type[width, height];
+        for (int y = 0; y < height; y++)
+        {
+            for (int x = 0; x < width; x++)
+            {
+                Tile tile = GetTile(x, y);
+                grid[x, y] = (null == tile) ? Tile.Type.None : tile.type;
+            }
+        }
+
+        return grid;
+    }
+
     /// <summary>타일 단위 최단 경로. 경로가 없으면 빈 리스트를 돌려준다(null 이 아니다).</summary>
     public List<Tile> FindPath(Tile from, Tile to)
     {
