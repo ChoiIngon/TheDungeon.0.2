@@ -13,7 +13,9 @@ using UnityEngine;
 ///   None  : 검정
 ///   Floor : 회색
 ///   Wall  : 노랑
-///   강조 타일(검증 실패 등) : 빨강
+///   표시 타일(공유 벽 등)   : 하늘색
+///   두 번째 표시 타일(두 겹 벽 등) : 자홍
+///   강조 타일(검증 실패 등) : 빨강 (표시보다 우선)
 /// </summary>
 public class DungeonDebugView
 {
@@ -21,6 +23,8 @@ public class DungeonDebugView
     public static readonly Color FloorColor = new Color(0.66f, 0.66f, 0.66f);
     public static readonly Color WallColor = new Color(0.70f, 0.62f, 0.0f);
     public static readonly Color HighlightColor = Color.red;
+    public static readonly Color MarkColor = new Color(0.2f, 0.75f, 1.0f);
+    public static readonly Color SubMarkColor = new Color(1.0f, 0.2f, 0.85f);
     public static readonly Color GridColor = new Color(0.5f, 0.5f, 0.5f);
     public static readonly Color BorderColor = Color.white;
 
@@ -64,8 +68,9 @@ public class DungeonDebugView
     /// <summary>
     /// 타일 배열을 그린다. grid 의 인덱스는 [x, y] 이다(<see cref="TileMap.ToTypeGrid"/> 와 같다).
     /// highlights 에 담긴 좌표는 타입과 상관없이 강조색으로 칠한다.
+    /// marks / subMarks 는 검증 실패가 아닌 참고용 표시이며, 각각 MarkColor / SubMarkColor 로 칠한다.
     /// </summary>
-    public void Draw(TileMap.Tile.Type[,] grid, IEnumerable<Vector2Int> highlights = null)
+    public void Draw(TileMap.Tile.Type[,] grid, IEnumerable<Vector2Int> highlights = null, IEnumerable<Vector2Int> marks = null, IEnumerable<Vector2Int> subMarks = null)
     {
         if (null == grid)
         {
@@ -85,6 +90,8 @@ public class DungeonDebugView
         bool grid1px = this.drawGrid && 3 <= cell;
 
         HashSet<Vector2Int> highlightSet = (null != highlights) ? new HashSet<Vector2Int>(highlights) : null;
+        HashSet<Vector2Int> markSet = (null != marks) ? new HashSet<Vector2Int>(marks) : null;
+        HashSet<Vector2Int> subMarkSet = (null != subMarks) ? new HashSet<Vector2Int>(subMarks) : null;
 
         int textureWidth = width * cell + (grid1px ? 1 : 0);
         int textureHeight = height * cell + (grid1px ? 1 : 0);
@@ -94,10 +101,19 @@ public class DungeonDebugView
         {
             for (int x = 0; x < width; x++)
             {
+                var position = new Vector2Int(x, y);
                 Color32 color = GetTileColor(grid[x, y]);
-                if (null != highlightSet && highlightSet.Contains(new Vector2Int(x, y)))
+                if (null != highlightSet && highlightSet.Contains(position))
                 {
                     color = HighlightColor;
+                }
+                else if (null != subMarkSet && subMarkSet.Contains(position))
+                {
+                    color = SubMarkColor;
+                }
+                else if (null != markSet && markSet.Contains(position))
+                {
+                    color = MarkColor;
                 }
 
                 for (int py = 0; py < cell; py++)

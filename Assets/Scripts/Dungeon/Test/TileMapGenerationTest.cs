@@ -20,6 +20,10 @@ using Debug = UnityEngine.Debug;
 ///   3. 다른 바닥과 4방향으로 이어지지 않은 바닥 섬이 있다. (걸어서 갈 수 없는 바닥)
 ///   4. (checkWallLeak) 바닥이 빈 공간이나 맵 밖에 바로 닿아 있다. (벽이 빠진 자리)
 /// 실패한 타일은 화면에서 빨간색으로 표시된다.
+///
+/// 벽 공유 표시 (showRoomWalls, 실패로 보지는 않는다)
+///   하늘색 : 두 방이 같이 쓰는 벽 한 줄. 사이에 뚫린 문은 바닥색 그대로 보인다.
+///   자홍   : 외곽이 나란히 붙어 벽이 두 겹으로 남은 자리. 당길 자리가 없을 때만 드물게 남는다.
 /// </summary>
 public class TileMapGenerationTest : MonoBehaviour
 {
@@ -55,6 +59,9 @@ public class TileMapGenerationTest : MonoBehaviour
     [Min(1)]
     public int cellPixels = 8;
 
+    [Tooltip("두 방이 같이 쓰는 벽(하늘색)과 두 겹으로 남은 벽(자홍)을 표시한다.")]
+    public bool showRoomWalls = true;
+
     [Tooltip("비워 두면 Camera.main 을 쓴다.")]
     public Camera targetCamera;
 
@@ -72,6 +79,18 @@ public class TileMapGenerationTest : MonoBehaviour
         public string failureReason;
         public TileMap.Tile.Type[,] grid;
         public List<Vector2Int> badTiles = new List<Vector2Int>();
+
+        /// <summary>두 방 이상의 외곽에 걸친 벽 타일.</summary>
+        public List<Vector2Int> sharedWalls = new List<Vector2Int>();
+
+        /// <summary>외곽이 나란히 붙어 두 겹이 된 벽 타일.</summary>
+        public List<Vector2Int> doubleWalls = new List<Vector2Int>();
+
+        /// <summary>외곽을 겹쳐 쓰는 방 쌍의 수.</summary>
+        public int sharedWallPairs;
+
+        /// <summary>외곽이 나란히 붙은 방 쌍의 수.</summary>
+        public int doubleWallPairs;
     }
 
     private DungeonDebugView view;
@@ -133,7 +152,8 @@ public class TileMapGenerationTest : MonoBehaviour
 
         if (true == result.passed)
         {
-            this.report = $"seed {seed}: PASS ({result.elapsedMilliseconds:F2} ms, {result.grid.GetLength(0)}x{result.grid.GetLength(1)})";
+            this.report = $"seed {seed}: PASS ({result.elapsedMilliseconds:F2} ms, {result.grid.GetLength(0)}x{result.grid.GetLength(1)}), " +
+                $"shared wall {result.sharedWallPairs} pair(s), double wall {result.doubleWallPairs} pair(s)";
             Debug.Log($"[TileMapGenerationTest] {this.report}");
         }
         else
@@ -174,6 +194,9 @@ public class TileMapGenerationTest : MonoBehaviour
         var failures = new List<Result>();
         Result firstDrawableFailure = null;
         Result lastPass = null;
+        int sharedWallMaps = 0;
+        int sharedWallPairs = 0;
+        int doubleWallPairs = 0;
 
         for (int i = 0; i < count; i++)
         {
@@ -184,6 +207,13 @@ public class TileMapGenerationTest : MonoBehaviour
             {
                 maxMilliseconds = result.elapsedMilliseconds;
                 maxSeed = result.seed;
+            }
+
+            sharedWallPairs += result.sharedWallPairs;
+            doubleWallPairs += result.doubleWallPairs;
+            if (0 < result.sharedWallPairs)
+            {
+                sharedWallMaps++;
             }
 
             if (true == result.passed)
@@ -203,6 +233,8 @@ public class TileMapGenerationTest : MonoBehaviour
                 {
                     result.grid = null;
                     result.badTiles = null;
+                    result.sharedWalls = null;
+                    result.doubleWalls = null;
                 }
 
                 failures.Add(result);
@@ -225,6 +257,7 @@ public class TileMapGenerationTest : MonoBehaviour
         builder.AppendLine($"  pass {passCount}, fail {failures.Count}");
         builder.AppendLine($"  max time : {maxMilliseconds:F2} ms (seed {maxSeed})");
         builder.AppendLine($"  avg time : {(0 < count ? totalMilliseconds / count : 0.0):F2} ms");
+        builder.AppendLine($"  shared wall : {sharedWallPairs} pair(s) in {sharedWallMaps} map(s), double wall : {doubleWallPairs} pair(s)");
 
         if (0 < failures.Count)
         {
@@ -270,6 +303,11 @@ public class TileMapGenerationTest : MonoBehaviour
             result.grid = tileMap.ToTypeGrid();
         }
         stopwatch.Stop();
+
+        if (true == built)
+        {
+            CollectRoomWalls(tileMap, result);
+        }
 
         result.elapsedMilliseconds = stopwatch.Elapsed.TotalMilliseconds;
 
@@ -398,6 +436,97 @@ public class TileMapGenerationTest : MonoBehaviour
         return true;
     }
 
+    /// <summary>
+    /// 방끼리 벽을 어떻게 맞대고 있는지 모은다.
+    ///   sharedWalls : 두 방 이상의 외곽에 걸친 벽 타일. 문(바닥)은 넣지 않아 공유 벽 사이의 문이 그대로 보이게 한다.
+    ///   doubleWalls : 외곽이 나란히 붙은 두 방의 맞닿은 외곽 타일.
+    /// </summary>
+    private static void CollectRoomWalls(TileMap tileMap, Result result)
+    {
+        List<TileMap.Room> rooms = tileMap.rooms;
+
+        var edgeCounts = new Dictionary<Vector2Int, int>();
+        foreach (TileMap.Room room in rooms)
+        {
+            Rect rect = room.rect;
+            for (int y = (int)rect.yMin; y < (int)rect.yMax; y++)
+            {
+                for (int x = (int)rect.xMin; x < (int)rect.xMax; x++)
+                {
+                    bool isEdge = x == (int)rect.xMin || x == (int)rect.xMax - 1 || y == (int)rect.yMin || y == (int)rect.yMax - 1;
+                    if (false == isEdge)
+                    {
+                        continue;
+                    }
+
+                    var position = new Vector2Int(x, y);
+                    edgeCounts.TryGetValue(position, out int edgeCount);
+                    edgeCounts[position] = edgeCount + 1;
+                }
+            }
+        }
+
+        foreach (KeyValuePair<Vector2Int, int> pair in edgeCounts)
+        {
+            if (2 <= pair.Value && TileMap.Tile.Type.Wall == result.grid[pair.Key.x, pair.Key.y])
+            {
+                result.sharedWalls.Add(pair.Key);
+            }
+        }
+
+        for (int i = 0; i < rooms.Count; i++)
+        {
+            for (int j = i + 1; j < rooms.Count; j++)
+            {
+                // 바닥끼리는 겹치지 않으므로 사각형이 겹쳤다면 외곽을 같이 쓰고 있는 것이다.
+                if (true == rooms[i].rect.Overlaps(rooms[j].rect))
+                {
+                    result.sharedWallPairs++;
+                    continue;
+                }
+
+                Vector2Int direction = TileMap.GetTouchingDirection(rooms[i], rooms[j]);
+                if (Vector2Int.zero == direction)
+                {
+                    continue;
+                }
+
+                result.doubleWallPairs++;
+
+                // a 가 왼쪽(또는 아래), b 가 오른쪽(또는 위)이 되도록 맞춘다.
+                Rect a = rooms[i].rect;
+                Rect b = rooms[j].rect;
+                if (0 > direction.x || 0 > direction.y)
+                {
+                    Rect swap = a;
+                    a = b;
+                    b = swap;
+                }
+
+                if (0 != direction.x)
+                {
+                    int yMin = (int)Mathf.Max(a.yMin, b.yMin);
+                    int yMax = (int)Mathf.Min(a.yMax, b.yMax);
+                    for (int y = yMin; y < yMax; y++)
+                    {
+                        result.doubleWalls.Add(new Vector2Int((int)a.xMax - 1, y));
+                        result.doubleWalls.Add(new Vector2Int((int)b.xMin, y));
+                    }
+                }
+                else
+                {
+                    int xMin = (int)Mathf.Max(a.xMin, b.xMin);
+                    int xMax = (int)Mathf.Min(a.xMax, b.xMax);
+                    for (int x = xMin; x < xMax; x++)
+                    {
+                        result.doubleWalls.Add(new Vector2Int(x, (int)a.yMax - 1));
+                        result.doubleWalls.Add(new Vector2Int(x, (int)b.yMin));
+                    }
+                }
+            }
+        }
+    }
+
     private static readonly Vector2Int[] Directions4 =
     {
         new Vector2Int( 0, +1),
@@ -520,7 +649,14 @@ public class TileMapGenerationTest : MonoBehaviour
         }
 
         debugView.cellPixels = this.cellPixels;
-        debugView.Draw(result.grid, result.badTiles);
+        if (true == this.showRoomWalls)
+        {
+            debugView.Draw(result.grid, result.badTiles, result.sharedWalls, result.doubleWalls);
+        }
+        else
+        {
+            debugView.Draw(result.grid, result.badTiles);
+        }
         debugView.FitCamera(null != this.targetCamera ? this.targetCamera : Camera.main);
     }
 

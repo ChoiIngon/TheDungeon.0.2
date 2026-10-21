@@ -5,13 +5,14 @@ using UnityEngine;
 /// 절차적 던전의 타일 맵.
 ///
 /// 생성 순서
-///   1. CreateRooms   : 후보 방을 넉넉히 만들고 겹치지 않게 밀어낸다.
-///   2. SelectRooms   : 델로네 → MST 로 만든 트리를 훑어 실제로 쓸 방을 고른다.
-///   3. CreateTiles   : 선택된 방을 감싸는 타일 배열을 만들고 방 바닥/외곽을 기록한다.
-///   4. ConnectRooms  : 델로네 → MST(+여분 간선) 를 따라 A* 로 복도를 판다.
-///   5. BuildWall     : 방 외곽과 복도 주변에 벽을 세우고 문을 판정한다.
-///   6. Finalize      : 이동 비용을 정규화하고 이웃 캐시를 만든다.
-///   7. Validate      : 결과가 실제로 플레이 가능한지 검증한다.
+///   1. CreateRooms        : 후보 방을 넉넉히 만들고 겹치지 않게 밀어낸다. 맞닿은 방은 외곽(벽) 한 줄을 겹쳐 쓴다.
+///   2. SelectRooms        : 델로네 → MST 로 만든 트리를 훑어 실제로 쓸 방을 고른다.
+///   3. MergeTouchingWalls : 벽이 두 겹으로 맞닿은 방을 한 칸 당겨 벽 한 줄을 공유하게 만든다.
+///   4. CreateTiles        : 선택된 방을 감싸는 타일 배열을 만들고 방 바닥/외곽을 기록한다.
+///   5. ConnectRooms       : 델로네 → MST(+여분 간선) 를 따라 A* 로 복도를 판다.
+///   6. BuildWall          : 방 외곽과 복도 주변에 벽을 세우고 문을 판정한다.
+///   7. Finalize           : 이동 비용을 정규화하고 이웃 캐시를 만든다.
+///   8. Validate           : 결과가 실제로 플레이 가능한지 검증한다.
 ///
 /// 생성은 실패할 수 있다(복도를 못 파는 배치가 나올 수 있다). 그래서 생성자를 직접 열지 않고
 /// TryBuild() 로만 만들게 해서, 실패를 호출자가 다른 시드로 재시도할 수 있게 한다.
@@ -343,6 +344,7 @@ public class TileMap
             return false;
         }
 
+        MergeTouchingWalls(selectedRooms);
         CreateTiles(selectedRooms);
 
         if (false == ConnectRooms(selectedRooms, out failureReason))
@@ -696,7 +698,7 @@ public class TileMap
             {
                 for (int j = i + 1; j < rooms.Count; j++)
                 {
-                    if (true == rooms[i].rect.Overlaps(rooms[j].rect))
+                    if (true == IsRoomOverlapped(rooms[i], rooms[j]))
                     {
                         ResolveOverlap(center, boundary, rooms[i], rooms[j]);
                         overlap = true;
@@ -712,6 +714,17 @@ public class TileMap
 
         // 상한에 걸렸다면 겹친 방이 남아 있을 수 있다. Validate() 가 최종적으로 걸러낸다.
         Debug.LogWarning($"RepositionRoom: {MaxRepositionIterations}회 안에 겹침을 해소하지 못했다.");
+    }
+
+    /// <summary>
+    /// 두 방이 벽 한 줄을 공유하는 것보다 더 깊게 겹쳤는지 본다.
+    ///
+    /// 한쪽 방의 외곽(벽)이 다른 방의 바닥에 닿지만 않으면 겹친 것으로 보지 않는다.
+    /// 그래서 밀어내기는 두 방이 외곽 한 줄을 겹쳐 쓰는 자리에서 멈추고, 맞닿은 방 사이의 벽은 두 겹이 아니라 한 겹이 된다.
+    /// </summary>
+    private static bool IsRoomOverlapped(Room a, Room b)
+    {
+        return a.rect.Overlaps(b.GetFloorRect()) || b.rect.Overlaps(a.GetFloorRect());
     }
 
     /// <summary>
@@ -912,6 +925,124 @@ public class TileMap
     }
 
     /// <summary>
+    /// 외곽이 나란히 맞닿은(벽이 두 겹이 되는) 방을 한 칸 당겨 벽 한 줄을 공유하게 만든다.
+    ///
+    /// 밀어내기(RepositionRoom)는 벽을 공유하는 자리에서 멈추지만, 처음부터 딱 맞닿게 놓였거나
+    /// 다른 방에 밀려서 맞닿게 된 방은 그대로 남는다. 선택된 방끼리만 보면 되므로 여기서 한 번 더 정리한다.
+    /// 당기면 반대편 방과 새로 맞닿을 수 있으므로, 그 방이 맞닿은 쌍의 수가 실제로 줄어들 때만 옮긴다.
+    /// </summary>
+    private void MergeTouchingWalls(List<Room> rooms)
+    {
+        for (int iteration = 0; iteration < MaxRepositionIterations; iteration++)
+        {
+            bool moved = false;
+            for (int i = 0; i < rooms.Count; i++)
+            {
+                for (int j = i + 1; j < rooms.Count; j++)
+                {
+                    Vector2Int direction = GetTouchingDirection(rooms[i], rooms[j]);
+                    if (Vector2Int.zero == direction)
+                    {
+                        continue;
+                    }
+
+                    // j 를 i 쪽으로 당겨 보고, 안 되면 i 를 j 쪽으로 당긴다.
+                    if (true == TryShiftRoom(rooms[j], new Vector2Int(-direction.x, -direction.y), rooms) ||
+                        true == TryShiftRoom(rooms[i], direction, rooms))
+                    {
+                        moved = true;
+                    }
+                }
+            }
+
+            if (false == moved)
+            {
+                return;
+            }
+        }
+    }
+
+    /// <summary>
+    /// a 의 외곽 바로 바깥에 b 의 외곽이 붙어 있으면 a 에서 b 를 향하는 방향을, 아니면 zero 를 돌려준다.
+    /// 모서리끼리 대각선으로만 닿은 경우는 벽이 나란히 서지 않으므로 맞닿은 것으로 보지 않는다.
+    /// </summary>
+    public static Vector2Int GetTouchingDirection(Room a, Room b)
+    {
+        bool overlapX = a.rect.xMin < b.rect.xMax && b.rect.xMin < a.rect.xMax;
+        bool overlapY = a.rect.yMin < b.rect.yMax && b.rect.yMin < a.rect.yMax;
+
+        if (true == overlapY)
+        {
+            if (a.rect.xMax == b.rect.xMin)
+            {
+                return new Vector2Int(+1, 0);
+            }
+
+            if (b.rect.xMax == a.rect.xMin)
+            {
+                return new Vector2Int(-1, 0);
+            }
+        }
+
+        if (true == overlapX)
+        {
+            if (a.rect.yMax == b.rect.yMin)
+            {
+                return new Vector2Int(0, +1);
+            }
+
+            if (b.rect.yMax == a.rect.yMin)
+            {
+                return new Vector2Int(0, -1);
+            }
+        }
+
+        return Vector2Int.zero;
+    }
+
+    private static int CountTouchingRooms(Room room, List<Room> rooms)
+    {
+        int count = 0;
+        foreach (Room other in rooms)
+        {
+            if (other != room && Vector2Int.zero != GetTouchingDirection(room, other))
+            {
+                count++;
+            }
+        }
+
+        return count;
+    }
+
+    /// <summary>방을 offset 만큼 옮긴다. 다른 방과 겹치거나 맞닿은 쌍이 줄지 않으면 되돌리고 false 를 돌려준다.</summary>
+    private static bool TryShiftRoom(Room room, Vector2Int offset, List<Room> rooms)
+    {
+        int before = CountTouchingRooms(room, rooms);
+
+        room.x += offset.x;
+        room.y += offset.y;
+
+        bool valid = true;
+        foreach (Room other in rooms)
+        {
+            if (other != room && true == IsRoomOverlapped(room, other))
+            {
+                valid = false;
+                break;
+            }
+        }
+
+        if (true == valid && CountTouchingRooms(room, rooms) < before)
+        {
+            return true;
+        }
+
+        room.x -= offset.x;
+        room.y -= offset.y;
+        return false;
+    }
+
+    /// <summary>
     /// 선택된 방들을 담을 타일 배열을 만들고, 방의 바닥과 외곽을 기록한다.
     /// 방 좌표는 여기서 (0,0) 기준으로 옮겨지며, 가장자리에는 MapPadding 만큼 여백을 남긴다.
     /// </summary>
@@ -944,24 +1075,14 @@ public class TileMap
             // 복도가 이 줄을 지나가면(=문이 되면) 비용이 내려가고, 그렇지 않으면 BuildWall 이 벽으로 바꾼다.
             for (int x = (int)room.rect.xMin; x < (int)room.rect.xMax; x++)
             {
-                Tile top = GetTile(x, (int)room.rect.yMax - 1);
-                top.type = Tile.Type.Floor;
-                top.cost = Tile.PathCost.MaxCost;
-
-                Tile bottom = GetTile(x, (int)room.rect.yMin);
-                bottom.type = Tile.Type.Floor;
-                bottom.cost = Tile.PathCost.MaxCost;
+                MarkRoomEdge(GetTile(x, (int)room.rect.yMax - 1));
+                MarkRoomEdge(GetTile(x, (int)room.rect.yMin));
             }
 
             for (int y = (int)room.rect.yMin; y < (int)room.rect.yMax; y++)
             {
-                Tile left = GetTile((int)room.rect.xMin, y);
-                left.type = Tile.Type.Floor;
-                left.cost = Tile.PathCost.MaxCost;
-
-                Tile right = GetTile((int)room.rect.xMax - 1, y);
-                right.type = Tile.Type.Floor;
-                right.cost = Tile.PathCost.MaxCost;
+                MarkRoomEdge(GetTile((int)room.rect.xMin, y));
+                MarkRoomEdge(GetTile((int)room.rect.xMax - 1, y));
             }
 
             // 네 모서리는 문이 될 수 없으므로 곧바로 벽으로 못박는다.
@@ -985,6 +1106,7 @@ public class TileMap
                 }
             }
 
+            // 두 방이 같이 쓰는 외곽 타일은 나중에 기록한 방의 것이 된다. 문도 마찬가지이며, 양쪽 방의 doors 에는 모두 들어간다.
             Rect roomRect = room.rect;
             for (int y = (int)roomRect.yMin; y < (int)roomRect.yMax; y++)
             {
@@ -994,6 +1116,24 @@ public class TileMap
                 }
             }
         }
+    }
+
+    /// <summary>
+    /// 방 외곽 타일을 "문이 될 수도 있는 벽 후보"로 기록한다.
+    ///
+    /// 맞닿은 두 방은 외곽 한 줄을 같이 쓴다. 이때 먼저 기록된 방의 모서리(Wall)가 나중 방의 외곽 한가운데에
+    /// 걸릴 수 있는데(T자로 만나는 자리), 이것을 Floor 로 되돌리면 복도가 그 자리를 문으로 뚫어 버린다.
+    /// 그래서 이미 벽으로 못박힌 타일은 건드리지 않는다.
+    /// </summary>
+    private static void MarkRoomEdge(Tile tile)
+    {
+        if (Tile.Type.Wall == tile.type)
+        {
+            return;
+        }
+
+        tile.type = Tile.Type.Floor;
+        tile.cost = Tile.PathCost.MaxCost;
     }
 
     /// <summary>
